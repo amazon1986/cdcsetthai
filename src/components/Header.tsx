@@ -62,14 +62,14 @@ export const Header: React.FC<HeaderProps> = ({
                 CDC Action Zone <span className="text-emerald-400 font-extrabold">V2</span>
               </h1>
               <span className="text-xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full font-medium">
-                Bitkub Bot
+                SET Stock Bot
               </span>
             </div>
-            <p className="text-xs text-slate-400">ระบบบอทเทรดคริปโตตามสัญญาณอินดิเคเตอร์ Chaloke.org</p>
+            <p className="text-xs text-slate-400">ระบบบอทเทรดหุ้นไทยตามสัญญาณอินดิเคเตอร์ Chaloke.org</p>
           </div>
         </div>
 
-        {/* Live Running Ticker Tape (ข้อความวิ่งราคาเหรียญทั้งหมดในระบบ) */}
+        {/* Live Running Ticker Tape (ข้อความวิ่งราคาหุ้นทั้งหมดในระบบ) */}
         <div className="flex-1 max-w-xl mx-2 sm:mx-4 overflow-hidden rounded-xl bg-slate-950/80 border border-slate-800/80 py-1.5 px-3 relative group">
           {/* Gradient Edge Masks for Smooth Visual Fade */}
           <div className="absolute left-0 top-0 bottom-0 w-6 bg-gradient-to-r from-slate-950 to-transparent z-10 pointer-events-none" />
@@ -89,7 +89,7 @@ export const Header: React.FC<HeaderProps> = ({
                     title={`คลิกเพื่อดูชาร์ต ${t.symbol}`}
                   >
                     <span className="text-slate-400 font-semibold group-hover/item:text-emerald-400 transition">
-                      {t.symbol.includes('_') ? t.symbol.split('_').join('/') : t.symbol}:
+                      {t.symbol}:
                     </span>
                     <span className="font-mono font-bold text-white">{formattedPrice}</span>
                     <span
@@ -106,12 +106,12 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
           ) : (
             <div className="flex items-center justify-center space-x-4 text-xs text-slate-400 py-0.5">
-              <span className="animate-pulse">กำลังดึงราคาเหรียญทั้งหมดในระบบ...</span>
+              <span className="animate-pulse">กำลังดึงราคาหุ้นทั้งหมดในระบบ...</span>
               {btcPrice && (
-                <span className="font-mono text-emerald-400">BTC: ฿{btcPrice.toLocaleString()}</span>
+                <span className="font-mono text-emerald-400">PTT: ฿{btcPrice.toLocaleString()}</span>
               )}
               {ethPrice && (
-                <span className="font-mono text-cyan-400">ETH: ฿{ethPrice.toLocaleString()}</span>
+                <span className="font-mono text-cyan-400">CPALL: ฿{ethPrice.toLocaleString()}</span>
               )}
             </div>
           )}
@@ -131,7 +131,7 @@ export const Header: React.FC<HeaderProps> = ({
               </div>
               <button
                 onClick={onResetPaperAccount}
-                title="Reset Paper Account Balance (฿30,000)"
+                title="Reset Paper Account Balance (฿100,000)"
                 className="text-slate-400 hover:text-white p-1 rounded hover:bg-slate-700 transition"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
@@ -140,7 +140,7 @@ export const Header: React.FC<HeaderProps> = ({
           ) : (
             <div className="flex items-center space-x-2 bg-amber-500/10 border border-amber-500/30 px-3 py-1.5 rounded-lg text-xs text-amber-400">
               <ShieldAlert className="w-4 h-4 text-amber-400" />
-              <span className="font-semibold">Bitkub Live API</span>
+              <span className="font-semibold">SET Live API</span>
             </div>
           )}
 
@@ -170,7 +170,7 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             onClick={onOpenSettings}
             className="p-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-white rounded-lg transition"
-            title="ตั้งค่า Bitkub API Key / Mode"
+            title="ตั้งค่า Settrade API Key / Mode"
           >
             <Settings className="w-4 h-4" />
           </button>
@@ -237,7 +237,7 @@ export const Header: React.FC<HeaderProps> = ({
             }`}
           >
             <Search className="w-4 h-4" />
-            <span>สแกนเหรียญ CDC</span>
+            <span>สแกนหุ้น CDC</span>
           </button>
 
           <button

@@ -78,7 +78,7 @@ export const BotControlPanel: React.FC<BotControlPanelProps> = ({
           <div className="flex items-center justify-between border-b border-slate-800 pb-3">
             <div className="flex items-center space-x-2">
               <Zap className="w-5 h-5 text-amber-400" />
-              <h3 className="text-base font-bold text-white">สถานะการถือครองสัญญา ({botConfig.symbol})</h3>
+              <h3 className="text-base font-bold text-white">สถานะการถือครองหุ้น ({botConfig.symbol})</h3>
             </div>
             <span
               className={`text-xs px-2.5 py-0.5 rounded-full font-semibold border ${
@@ -88,7 +88,7 @@ export const BotControlPanel: React.FC<BotControlPanelProps> = ({
               }`}
             >
               {botConfig.isActive
-                ? `🟢 Bot Auto (${botConfig.scanMode === 'MULTI_SCAN' ? 'สแกนทุกเหรียญ' : botConfig.symbol})`
+                ? `🟢 Bot Auto (${botConfig.scanMode === 'MULTI_SCAN' ? 'สแกนหุ้นทั้งหมด' : botConfig.symbol})`
                 : '🔴 Bot ปิดการทำงาน'}
             </span>
           </div>
@@ -113,7 +113,7 @@ export const BotControlPanel: React.FC<BotControlPanelProps> = ({
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <span>🎯 เล่นเฉพาะเหรียญปัจจุบัน</span>
+                  <span>🎯 เล่นเฉพาะหุ้นปัจจุบัน</span>
                   {(botConfig.scanMode ?? 'SINGLE') === 'SINGLE' && (
                     <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full font-extrabold">
                       ใช้งานอยู่
@@ -121,7 +121,7 @@ export const BotControlPanel: React.FC<BotControlPanelProps> = ({
                   )}
                 </div>
                 <p className="text-[11px] text-slate-400 font-normal leading-normal">
-                  เฝ้าระวังและส่งคำสั่งซื้อเฉพาะเหรียญ {botConfig.symbol} ที่เลือกอยู่นี้เท่านั้น
+                  เฝ้าระวังและส่งคำสั่งซื้อเฉพาะหุ้น {botConfig.symbol} ที่เลือกอยู่นี้เท่านั้น
                 </p>
               </button>
 
@@ -139,7 +139,7 @@ export const BotControlPanel: React.FC<BotControlPanelProps> = ({
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <span>🌐 สแกนเปิดออเดอร์ทุกเหรียญอัตโนมัติ</span>
+                  <span>🌐 สแกนเปิดออเดอร์หุ้นทุกตัวอัตโนมัติ</span>
                   {botConfig.scanMode === 'MULTI_SCAN' && (
                     <span className="text-[10px] bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded-full font-extrabold">
                       ใช้งานอยู่
@@ -147,7 +147,7 @@ export const BotControlPanel: React.FC<BotControlPanelProps> = ({
                   )}
                 </div>
                 <p className="text-[11px] text-slate-400 font-normal leading-normal">
-                  สแกนเหรียญทั้งหมดใน Bitkub และส่งคำสั่งเข้าซื้อทุกเหรียญที่เกิดสัญญาณ CDC
+                  สแกนหุ้นทั้งหมดในตลาดและส่งคำสั่งเข้าซื้อทุกหุ้นที่เกิดสัญญาณ CDC
                 </p>
               </button>
             </div>
@@ -202,7 +202,7 @@ export const BotControlPanel: React.FC<BotControlPanelProps> = ({
             </div>
           ) : (
             <div className="bg-slate-950/60 border border-slate-800/60 rounded-xl p-4 text-center space-y-1">
-              <p className="text-xs text-slate-400">ยังไม่มีโพสิชันถือครองในเหรียญ {botConfig.symbol}</p>
+              <p className="text-xs text-slate-400">ยังไม่มีโพสิชันถือครองในหุ้น {botConfig.symbol}</p>
               <p className="text-[11px] text-slate-500">
                 บอทจะส่งคำสั่งเข้าซื้อเมื่อเกิดสัญญาณ <span className="text-blue-400">ฟ้า/เขียว (Buy)</span>
               </p>
@@ -287,7 +287,7 @@ export const BotControlPanel: React.FC<BotControlPanelProps> = ({
                   type="button"
                   onClick={() => onManualBuy(computedManualUsdt)}
                   className="flex items-center space-x-1 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow transition"
-                  title={`ซื้อเหรียญด้วยเงิน ฿${computedManualUsdt.toFixed(2)} THB (${manualPercent}%)`}
+                  title={`ซื้อหุ้นด้วยเงิน ฿${computedManualUsdt.toFixed(2)} THB (${manualPercent}%)`}
                 >
                   <ArrowUpRight className="w-4 h-4" />
                   <span>Manual BUY ({manualPercent}%)</span>
@@ -300,7 +300,7 @@ export const BotControlPanel: React.FC<BotControlPanelProps> = ({
                   className="flex items-center space-x-1 px-3 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-bold shadow transition disabled:opacity-40 disabled:cursor-not-allowed"
                   title="ขายโพสิชันปัจจุบันทันที"
                 >
-                  <span>ขายเหรียญ (Sell)</span>
+                  <span>ขายหุ้น (Sell)</span>
                 </button>
               </div>
             </div>
@@ -498,7 +498,7 @@ export const BotControlPanel: React.FC<BotControlPanelProps> = ({
                   </div>
                 ) : (
                   <div>
-                    <label className="text-slate-400 font-medium block mb-1">สัดส่วนต่อเหรียญโดยประมาณ</label>
+                    <label className="text-slate-400 font-medium block mb-1">สัดส่วนต่อหุ้นโดยประมาณ</label>
                     <div className="bg-slate-900 border border-slate-800/80 rounded-xl px-3 py-2 text-emerald-400 font-mono font-bold">
                       {Math.round(100 / (configForm.maxOpenPositions || 5))}% / ไม้
                     </div>

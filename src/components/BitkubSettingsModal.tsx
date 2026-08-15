@@ -46,13 +46,13 @@ export const BitkubSettingsModal: React.FC<BitkubSettingsModalProps> = ({
       if (res.ok && data.success) {
         setVerifyStatus({
           success: true,
-          message: `เชื่อมต่อบัญชี Bitkub สำเร็จ! ดึงข้อมูลยอดเงินสำเร็จ 🟢`,
+          message: `เชื่อมต่อบัญชี Settrade Sandbox สำเร็จ! ดึงข้อมูลยอดเงินสำเร็จ 🟢`,
           canTrade: true,
         });
       } else {
         setVerifyStatus({
           success: false,
-          message: data.error || 'การเชื่อมต่อล้มเหลว กรุณาตรวจสอบ API Key และ Secret',
+          message: data.error || 'การเชื่อมต่อล้มเหลว กรุณาตรวจสอบ App Key และ App Secret',
         });
       }
     } catch (err: any) {
@@ -78,7 +78,7 @@ export const BitkubSettingsModal: React.FC<BitkubSettingsModalProps> = ({
         <div className="flex items-center justify-between border-b border-slate-800 pb-3">
           <div className="flex items-center space-x-2">
             <Key className="w-5 h-5 text-amber-400" />
-            <h3 className="text-base font-bold text-white">ตั้งค่าการเชื่อมต่อ Bitkub API & Mode</h3>
+            <h3 className="text-base font-bold text-white">ตั้งค่าการเชื่อมต่อ Settrade API & Mode</h3>
           </div>
           <button onClick={onClose} className="p-1 text-slate-400 hover:text-white rounded-lg">
             <X className="w-5 h-5" />
@@ -101,7 +101,7 @@ export const BitkubSettingsModal: React.FC<BitkubSettingsModalProps> = ({
               >
                 <span className="text-emerald-400 font-bold">🟢 Paper Trading (จำลอง)</span>
                 <span className="text-[10px] text-slate-400 font-normal">
-                  ใช้เงินจำลอง (฿30,000) ไม่มีความเสี่ยง ปลอดภัย 100%
+                  ใช้เงินจำลอง (฿100,000) ไม่มีความเสี่ยง ปลอดภัย 100%
                 </span>
               </button>
 
@@ -114,9 +114,9 @@ export const BitkubSettingsModal: React.FC<BitkubSettingsModalProps> = ({
                     : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
                 }`}
               >
-                <span className="text-amber-400 font-bold">⚡ Bitkub Live API</span>
+                <span className="text-amber-400 font-bold">⚡ Settrade Sandbox API</span>
                 <span className="text-[10px] text-slate-400 font-normal">
-                  ส่งคำสั่งซื้อขายจริงเข้า Bitkub API โดยตรง (ตลาด Spot เท่านั้น)
+                  ส่งคำสั่งซื้อขายจริงเข้า Settrade Sandbox/โบรกเกอร์ (ตลาดหุ้นไทย)
                 </span>
               </button>
             </div>
@@ -126,28 +126,28 @@ export const BitkubSettingsModal: React.FC<BitkubSettingsModalProps> = ({
           <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 flex items-start space-x-2 text-[10px] text-slate-400">
             <Shield className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
             <span>
-              <strong>Bitkub Spot Market</strong>: บอทนี้จะทำงานในระบบตลาด Spot เท่านั้น ซึ่งจะทำการเปิดฝั่ง Buy (เพื่อถือเหรียญ) และ Sell (เพื่อขายเหรียญออก) ตามสัญญาณ CDC Action Zone ไม่มีการเปิด Short หรืออัตราทดเลเวอเรจใดๆ
+              <strong>SET Stock Market</strong>: บอทนี้จะทำงานในระบบตลาดหลักทรัพย์แห่งประเทศไทย (SET) ซึ่งจะทำการเปิดฝั่ง Buy (เพื่อซื้อหุ้น) และ Sell (เพื่อขายหุ้นออก) ตามสัญญาณ CDC Action Zone เป็นหลัก
             </span>
           </div>
 
-          {/* Bitkub API Key Input */}
+          {/* App Key Input */}
           <div className="space-y-1">
-            <label className="text-slate-300 font-medium block">Bitkub API Key</label>
+            <label className="text-slate-300 font-medium block">Settrade App Key (Sandbox)</label>
             <input
               type="text"
-              placeholder="กรอก API Key จาก Bitkub..."
+              placeholder="กรอก App Key จาก Settrade Open API..."
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
               className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:border-emerald-500"
             />
           </div>
 
-          {/* Bitkub API Secret Input */}
+          {/* App Secret Input */}
           <div className="space-y-1">
-            <label className="text-slate-300 font-medium block">Bitkub API Secret Key</label>
+            <label className="text-slate-300 font-medium block">Settrade App Secret (Sandbox)</label>
             <input
               type="password"
-              placeholder="กรอก API Secret..."
+              placeholder="กรอก App Secret..."
               value={apiSecret}
               onChange={(e) => setApiSecret(e.target.value)}
               className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:border-emerald-500"
@@ -162,7 +162,7 @@ export const BitkubSettingsModal: React.FC<BitkubSettingsModalProps> = ({
             className="w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl font-semibold transition flex items-center justify-center space-x-2 disabled:opacity-50"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isVerifying ? 'animate-spin' : ''}`} />
-            <span>ทดสอบการเชื่อมต่อ API</span>
+            <span>ทดสอบการเชื่อมต่อ API (Settrade)</span>
           </button>
 
           {/* Verification Result Message */}

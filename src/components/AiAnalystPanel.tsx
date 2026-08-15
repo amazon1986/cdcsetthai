@@ -123,7 +123,7 @@ export const AiAnalystPanel: React.FC<AiAnalystPanelProps> = ({
                   <div className="flex flex-wrap gap-2 mt-1">
                     {analysis.keyLevels?.support?.map((s, i) => (
                       <span key={i} className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 px-2.5 py-1 rounded-lg">
-                        ${s.toLocaleString()}
+                        ฿{s.toLocaleString()}
                       </span>
                     ))}
                   </div>
@@ -134,7 +134,7 @@ export const AiAnalystPanel: React.FC<AiAnalystPanelProps> = ({
                   <div className="flex flex-wrap gap-2 mt-1">
                     {analysis.keyLevels?.resistance?.map((r, i) => (
                       <span key={i} className="bg-rose-500/10 border border-rose-500/30 text-rose-400 px-2.5 py-1 rounded-lg">
-                        ${r.toLocaleString()}
+                        ฿{r.toLocaleString()}
                       </span>
                     ))}
                   </div>
@@ -166,7 +166,7 @@ export const AiAnalystPanel: React.FC<AiAnalystPanelProps> = ({
           <Cpu className="w-10 h-10 text-cyan-500/40 mx-auto" />
           <h4 className="text-sm font-semibold text-slate-300">พร้อมประมวลผลการวิเคราะห์ด้วย Gemini AI</h4>
           <p className="text-xs text-slate-500 max-w-md mx-auto">
-            กดปุ่ม "ประมวลผลการวิเคราะห์ AI" ด้านบน เพื่อให้อัลกอริทึมวิเคราะห์สัญญาณ CDC Action Zone V2 ของเหรียญ {symbol}
+            กดปุ่ม "ประมวลผลการวิเคราะห์ AI" ด้านบน เพื่อให้อัลกอริทึมวิเคราะห์สัญญาณ CDC Action Zone V2 ของหุ้น {symbol}
           </p>
         </div>
       )}

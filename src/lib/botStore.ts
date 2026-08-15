@@ -13,14 +13,14 @@ const STORAGE_KEYS = {
 
 export const DEFAULT_BOT_CONFIG: BotConfig = {
   id: 'default_bot',
-  symbol: 'BTC_THB',
+  symbol: 'PTT',
   timeframe: '1d', // 🚀 Default to 1D (Daily) as requested by user
   fastEmaPeriod: 12,
   slowEmaPeriod: 26,
-  tradeAmountUsdt: 1000, // THB value
+  tradeAmountUsdt: 10000, // THB value
   usePercentBalance: true,
   balancePercent: 20,
-  positionSizingMode: 'EQUAL_WEIGHT', // 🎯 ถัวเฉลี่ยเท่ากันทุกเหรียญ (Equal Weight Sizing)
+  positionSizingMode: 'EQUAL_WEIGHT', // 🎯 ถัวเฉลี่ยเท่ากันทุกหุ้น (Equal Weight Sizing)
   leverage: 1, // ⚡ Default 1x (1x to 10x)
   maxOpenPositions: 5, // 🎯 ถือครองสูงสุด 5 ไม้ (แบ่งเท่ากันไม้ละ 20% ของพอร์ตรวม)
   stopLossPercent: 5,
@@ -36,8 +36,8 @@ export const DEFAULT_BOT_CONFIG: BotConfig = {
 };
 
 export const DEFAULT_PAPER_ACCOUNT: PaperAccount = {
-  usdtBalance: 10000, // Initial THB balance
-  initialUsdtBalance: 10000,
+  usdtBalance: 100000, // Initial THB balance
+  initialUsdtBalance: 100000,
   activePositions: [],
   totalTrades: 0,
   winningTrades: 0,

@@ -67,11 +67,11 @@ interface ServerState {
 const DEFAULT_SERVER_STATE: ServerState = {
   botConfig: {
     id: 'default_bot',
-    symbol: 'BTC_THB',
+    symbol: 'PTT',
     timeframe: '1d',
     fastEmaPeriod: 12,
     slowEmaPeriod: 26,
-    tradeAmountUsdt: 1000,
+    tradeAmountUsdt: 10000,
     usePercentBalance: true,
     balancePercent: 20,
     positionSizingMode: 'EQUAL_WEIGHT',
@@ -89,8 +89,8 @@ const DEFAULT_SERVER_STATE: ServerState = {
     isActive: false,
   },
   paperAccount: {
-    usdtBalance: 10000,
-    initialUsdtBalance: 10000,
+    usdtBalance: 100000,
+    initialUsdtBalance: 100000,
     activePositions: [],
     totalTrades: 0,
     winningTrades: 0,
@@ -99,7 +99,7 @@ const DEFAULT_SERVER_STATE: ServerState = {
   },
   tradeHistory: [],
   botLogs: [
-    `[${new Date().toLocaleTimeString('th-TH')}] 🚀 CDC Action Zone 24/7 Cloud Server initialized and ready.`,
+    `[${new Date().toLocaleTimeString('th-TH')}] 🚀 CDC Action Zone 24/7 Cloud Stock Bot Server initialized and ready.`,
   ],
 };
 
@@ -233,32 +233,63 @@ function calculateOrderSize(config: BotConfig, account: PaperAccount): number {
 
 async function fetchKlinesDirect(symbol: string, interval: string, limit = 300): Promise<KlineData[]> {
   try {
-    let resolution = '1D';
+    let cleanSymbol = symbol;
+    // Auto convert crypto symbols left in bot state to PTT
+    if (cleanSymbol.includes('_') || cleanSymbol.includes('/')) {
+      const parts = cleanSymbol.split(/[_/]/);
+      cleanSymbol = parts[0] === 'USDT' || parts[0] === 'BTC' || parts[0] === 'ETH' || parts[0] === 'KUB' ? 'PTT' : parts[0];
+    }
+    const yahooSymbol = cleanSymbol.endsWith('.BK') ? cleanSymbol.toUpperCase() : `${cleanSymbol.toUpperCase()}.BK`;
+
+    let yahooInterval = '1d';
     let step = 86400;
     switch (interval) {
-      case '1m': resolution = '1'; step = 60; break;
-      case '5m': resolution = '5'; step = 300; break;
-      case '15m': resolution = '15'; step = 900; break;
-      case '1h': resolution = '60'; step = 3600; break;
-      case '4h': resolution = '240'; step = 14400; break;
-      case '1d': resolution = '1D'; step = 86400; break;
-      case '1w': resolution = '1W'; step = 604800; break;
+      case '1m': yahooInterval = '1m'; step = 60; break;
+      case '5m': yahooInterval = '5m'; step = 300; break;
+      case '15m': yahooInterval = '15m'; step = 900; break;
+      case '1h': yahooInterval = '60m'; step = 3600; break;
+      case '4h': yahooInterval = '60m'; step = 14400; break; // Fallback to 1h
+      case '1d': yahooInterval = '1d'; step = 86400; break;
+      case '1w': yahooInterval = '1wk'; step = 604800; break;
     }
     const to = Math.floor(Date.now() / 1000);
     const from = to - (limit * step);
-    const url = `https://api.bitkub.com/tradingview/history?symbol=${symbol.replace('/', '_')}&resolution=${resolution}&from=${from}&to=${to}`;
-    const res = await fetch(url);
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?interval=${yahooInterval}&period1=${from}&period2=${to}`;
+    
+    const res = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      }
+    });
     if (!res.ok) return [];
     const data = await res.json();
-    if (data.s !== 'ok' || !Array.isArray(data.t)) return [];
-    return data.t.map((t: number, i: number) => ({
-      time: t,
-      open: parseFloat(data.o[i]),
-      high: parseFloat(data.h[i]),
-      low: parseFloat(data.l[i]),
-      close: parseFloat(data.c[i]),
-      volume: parseFloat(data.v[i]),
-    }));
+    const result = data.chart?.result?.[0];
+    if (!result || !result.timestamp) return [];
+    
+    const quote = result.indicators?.quote?.[0];
+    if (!quote) return [];
+
+    const klines: KlineData[] = [];
+    for (let i = 0; i < result.timestamp.length; i++) {
+      const t = result.timestamp[i];
+      const o = quote.open?.[i];
+      const h = quote.high?.[i];
+      const l = quote.low?.[i];
+      const c = quote.close?.[i];
+      const v = quote.volume?.[i] || 0;
+
+      if (o == null || h == null || l == null || c == null) continue;
+
+      klines.push({
+        time: t,
+        open: Number(o),
+        high: Number(h),
+        low: Number(l),
+        close: Number(c),
+        volume: Number(v),
+      });
+    }
+    return klines;
   } catch (err) {
     return [];
   }
@@ -552,7 +583,7 @@ app.post('/api/bot/manual-order', (req, res) => {
     };
 
     serverState.tradeHistory.unshift(trade);
-    addServerLog(`✋ [MANUAL ORDER ${lev}x] เปิด ${side} ${symbol} @ $${currentPrice} | ทุน $${amountUsdt} USDT (มูลค่าสัญญา $${notionalValue.toFixed(2)})`);
+    addServerLog(`✋ [MANUAL ORDER ${lev}x] เปิด ${side} ${symbol} @ ฿${currentPrice} | ทุน ฿${amountUsdt} THB (มูลค่าสัญญา ฿${notionalValue.toFixed(2)})`);
     saveServerState();
     return res.json({ success: true });
   } catch (err: any) {
@@ -616,7 +647,7 @@ app.post('/api/bot/close-position', async (req, res) => {
     };
 
     serverState.tradeHistory.unshift(trade);
-    addServerLog(`✋ [MANUAL CLOSE ${posLev}x] ปิดสัญญา ${pos.symbol} @ $${currentPrice} | PnL: ${pnlUsdt >= 0 ? '+' : ''}$${pnlUsdt.toFixed(2)} (${pnlPercent.toFixed(2)}%)`);
+    addServerLog(`✋ [MANUAL CLOSE ${posLev}x] ปิดสัญญา ${pos.symbol} @ ฿${currentPrice} | PnL: ${pnlUsdt >= 0 ? '+' : ''}฿${pnlUsdt.toFixed(2)} (${pnlPercent.toFixed(2)}%)`);
     saveServerState();
     return res.json({ success: true });
   } catch (err: any) {
@@ -660,17 +691,81 @@ app.get('/api/health', (req, res) => {
 
 // ==================== BITKUB PROXY ENDPOINTS ====================
 
+// ==================== STOCK PORTAL ENDPOINTS (MOCKED & YAHOO FEED) ====================
+
 app.get('/api/bitkub/klines', async (req, res) => {
   try {
-    const symbol = (req.query.symbol as string) || 'BTC_THB';
+    let symbol = (req.query.symbol as string) || 'PTT';
+    // Auto convert crypto symbols left in bot state to PTT
+    if (symbol.includes('_') || symbol.includes('/')) {
+      const parts = symbol.split(/[_/]/);
+      symbol = parts[0] === 'USDT' || parts[0] === 'BTC' || parts[0] === 'ETH' || parts[0] === 'KUB' ? 'PTT' : parts[0];
+    }
     const resolution = String(req.query.resolution || '1D');
     const from = parseInt(String(req.query.from || '0'), 10);
     const to = parseInt(String(req.query.to || '0'), 10);
-    const url = `https://api.bitkub.com/tradingview/history?symbol=${symbol}&resolution=${resolution}&from=${from}&to=${to}`;
-    const response = await fetch(url);
-    if (!response.ok) return res.status(response.status).json({ error: 'Bitkub API request failed' });
+
+    const yahooSymbol = symbol.endsWith('.BK') ? symbol.toUpperCase() : `${symbol.toUpperCase()}.BK`;
+    let interval = '1d';
+    if (resolution === '1') interval = '1m';
+    else if (resolution === '5') interval = '5m';
+    else if (resolution === '15') interval = '15m';
+    else if (resolution === '60') interval = '60m';
+    else if (resolution === '240') interval = '60m'; // yahoo limits, fallback to 1h
+    else if (resolution === '1D' || resolution === 'D') interval = '1d';
+    else if (resolution === '1W' || resolution === 'W') interval = '1wk';
+
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?interval=${interval}&period1=${from}&period2=${to}`;
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      }
+    });
+
+    if (!response.ok) {
+      return res.status(response.status).json({ s: 'error', error: 'Yahoo API request failed' });
+    }
+
     const data = await response.json();
-    return res.json(data);
+    const result = data.chart?.result?.[0];
+    if (!result || !result.timestamp) {
+      return res.json({ s: 'no_data', t: [], o: [], h: [], l: [], c: [], v: [] });
+    }
+
+    const timestamps = result.timestamp;
+    const quote = result.indicators?.quote?.[0];
+    if (!quote) {
+      return res.json({ s: 'no_data', t: [], o: [], h: [], l: [], c: [], v: [] });
+    }
+
+    const t: number[] = [];
+    const o: number[] = [];
+    const h: number[] = [];
+    const l: number[] = [];
+    const c: number[] = [];
+    const v: number[] = [];
+
+    for (let i = 0; i < timestamps.length; i++) {
+      if (
+        quote.open?.[i] == null ||
+        quote.high?.[i] == null ||
+        quote.low?.[i] == null ||
+        quote.close?.[i] == null
+      ) {
+        continue;
+      }
+      t.push(timestamps[i]);
+      o.push(Number(quote.open[i]));
+      h.push(Number(quote.high[i]));
+      l.push(Number(quote.low[i]));
+      c.push(Number(quote.close[i]));
+      v.push(Number(quote.volume?.[i] || 0));
+    }
+
+    return res.json({
+      s: 'ok',
+      t, o, h, l, c, v
+    });
   } catch (error: any) {
     return res.status(500).json({ error: sanitizeErrorMessage(error) });
   }
@@ -678,11 +773,56 @@ app.get('/api/bitkub/klines', async (req, res) => {
 
 app.get('/api/bitkub/ticker', async (req, res) => {
   try {
-    const url = 'https://api.bitkub.com/api/market/ticker';
-    const response = await fetch(url);
-    if (!response.ok) return res.status(response.status).json({ error: 'Ticker request failed' });
-    const data = await response.json();
-    return res.json(data);
+    const popularStocks = [
+      'PTT', 'CPALL', 'AOT', 'DELTA', 'ADVANC', 'BDMS', 'KBANK', 'SCB', 'GULF', 'PTTEP', 'TRUE', 'KTB', 'CPF', 'HMPRO', 'SCC'
+    ];
+    const symbolsQuery = popularStocks.map(s => `${s}.BK`).join(',');
+    const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbolsQuery}`;
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      }
+    });
+
+    const tickerResult: Record<string, any> = {};
+
+    if (response.ok) {
+      const data = await response.json();
+      const quotes = data.quoteResponse?.result || [];
+      quotes.forEach((q: any) => {
+        const rawSym = q.symbol.replace('.BK', '');
+        const formatKey = `THB_${rawSym}`;
+        const last = q.regularMarketPrice || 0;
+        const changePercent = q.regularMarketChangePercent || 0;
+        const volume = q.regularMarketVolume || 0;
+
+        tickerResult[formatKey] = {
+          last: last,
+          percentChange: changePercent,
+          lowestAsk: last,
+          highestBid: last,
+          baseVolume: volume,
+          quoteVolume: volume * last
+        };
+      });
+    }
+
+    // Fallback/fill missing stocks
+    popularStocks.forEach(s => {
+      const key = `THB_${s}`;
+      if (!tickerResult[key]) {
+        tickerResult[key] = {
+          last: 40.0,
+          percentChange: 0.0,
+          lowestAsk: 40.0,
+          highestBid: 40.0,
+          baseVolume: 500000,
+          quoteVolume: 20000000
+        };
+      }
+    });
+
+    return res.json(tickerResult);
   } catch (error: any) {
     return res.status(500).json({ error: sanitizeErrorMessage(error) });
   }
@@ -690,14 +830,51 @@ app.get('/api/bitkub/ticker', async (req, res) => {
 
 app.get('/api/bitkub/depth', async (req, res) => {
   try {
-    const rawSymbol = (req.query.symbol as string) || 'BTC_THB';
-    const limit = Math.min(Math.max(1, parseInt(String(req.query.limit || '20'), 10) || 20), 5000);
-    const bitkubSym = toBitkubSymbol(rawSymbol);
-    const url = `https://api.bitkub.com/api/market/depth?sym=${bitkubSym}&lmt=${limit}`;
-    const response = await fetch(url);
-    if (!response.ok) return res.status(response.status).json({ error: 'Depth request failed' });
-    const data = await response.json();
-    return res.json(data);
+    const rawSymbol = (req.query.symbol as string) || 'PTT';
+    let symbol = rawSymbol;
+    if (symbol.includes('_')) {
+      const parts = symbol.split('_');
+      symbol = parts[1] === 'THB' ? parts[0] : parts[1];
+    }
+    
+    const yahooSymbol = symbol.endsWith('.BK') ? symbol.toUpperCase() : `${symbol.toUpperCase()}.BK`;
+    let lastPrice = 50.0;
+    try {
+      const response = await fetch(`https://query1.finance.yahoo.com/v7/finance/quote?symbols=${yahooSymbol}`, {
+        headers: { 'User-Agent': 'Mozilla/5.0' }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        lastPrice = data.quoteResponse?.result?.[0]?.regularMarketPrice || 50.0;
+      }
+    } catch (e) {
+      console.warn('Depth price fetch failed, using fallback 50.0');
+    }
+
+    const bids: [string, string][] = [];
+    const asks: [string, string][] = [];
+    const limit = Math.min(Math.max(1, parseInt(String(req.query.limit || '15'), 10) || 15), 50);
+
+    let tickSize = 0.25;
+    if (lastPrice < 2) tickSize = 0.01;
+    else if (lastPrice < 5) tickSize = 0.02;
+    else if (lastPrice < 10) tickSize = 0.05;
+    else if (lastPrice < 25) tickSize = 0.10;
+    else if (lastPrice < 100) tickSize = 0.25;
+    else if (lastPrice < 200) tickSize = 0.50;
+    else if (lastPrice < 400) tickSize = 1.00;
+    else tickSize = 2.00;
+
+    for (let i = 1; i <= limit; i++) {
+      const bidPrice = (lastPrice - (i * tickSize)).toFixed(2);
+      const askPrice = (lastPrice + (i * tickSize)).toFixed(2);
+      const bidQty = (Math.floor(Math.random() * 500) * 100 + 100).toString();
+      const askQty = (Math.floor(Math.random() * 500) * 100 + 100).toString();
+      bids.push([bidPrice, bidQty]);
+      asks.push([askPrice, askQty]);
+    }
+
+    return res.json({ bids, asks });
   } catch (error: any) {
     return res.status(500).json({ error: sanitizeErrorMessage(error) });
   }
@@ -705,43 +882,14 @@ app.get('/api/bitkub/depth', async (req, res) => {
 
 app.post('/api/bitkub/balances', async (req, res) => {
   try {
-    const { apiKey, apiSecret } = req.body;
-    if (!apiKey || !apiSecret) {
-      return res.status(400).json({ error: 'Invalid API credentials' });
-    }
-    const timestamp = await getBitkubTimestamp();
-    const path = '/api/v4/wallet/balances';
-    const signature = buildBitkubSignature(timestamp, 'GET', path, '', apiSecret);
-    const response = await fetch(`https://api.bitkub.com${path}`, {
-      method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-        'X-BTK-APIKEY': apiKey,
-        'X-BTK-TIMESTAMP': String(timestamp),
-        'X-BTK-SIGN': signature,
-      },
-    });
-    const data = await response.json();
-    console.log('--- Bitkub Balances API Debug ---');
-    console.log('Timestamp sent:', timestamp);
-    console.log('Signature sent:', signature);
-    console.log('Response data:', data);
-    if (!response.ok || data.error !== 0) {
-      return res.status(response.status).json({ error: data.error || 'Bitkub Wallet API error' });
-    }
-
-    const balances = Object.entries(data.result || {}).map(([asset, val]: [string, any]) => ({
-      asset,
-      free: String(val.available),
-      locked: String(val.reserved),
-    }));
-
+    const { apiKey } = req.body;
     return res.json({
       success: true,
       canTrade: true,
-      accountType: 'SPOT',
-      balances,
+      accountType: 'SET_SANDBOX',
+      balances: [
+        { asset: 'THB', free: '1000000.00', locked: '0.00' }
+      ]
     });
   } catch (error: any) {
     return res.status(500).json({ error: sanitizeErrorMessage(error) });
@@ -750,44 +898,18 @@ app.post('/api/bitkub/balances', async (req, res) => {
 
 app.post('/api/bitkub/order', orderLimiter, async (req, res) => {
   try {
-    const { apiKey, apiSecret, symbol: rawSymbol, side: rawSide, quantity, price, orderType = 'MARKET' } = req.body;
-    if (!apiKey || !apiSecret) {
-      return res.status(400).json({ error: 'Invalid API credentials' });
-    }
-    const symbol = toBitkubSymbol(rawSymbol);
-    const side = String(rawSide).toUpperCase();
-    const isBuy = side === 'BUY';
-    const path = isBuy ? '/api/v3/market/place-bid' : '/api/v3/market/place-ask';
-    
-    const qty = parseFloat(quantity);
-    const rate = orderType === 'MARKET' ? 0 : parseFloat(price);
-    
-    const bodyObj = {
-      sym: symbol,
-      amt: qty,
-      rat: rate,
-      typ: orderType.toLowerCase(),
-    };
-    const bodyString = JSON.stringify(bodyObj);
-    const timestamp = await getBitkubTimestamp();
-    const signature = buildBitkubSignature(timestamp, 'POST', path, bodyString, apiSecret);
-    
-    const response = await fetch(`https://api.bitkub.com${path}`, {
-      method: 'POST',
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-        'X-BTK-APIKEY': apiKey,
-        'X-BTK-TIMESTAMP': String(timestamp),
-        'X-BTK-SIGN': signature,
-      },
-      body: bodyString,
+    const { apiKey, symbol, side, quantity, price, orderType = 'MARKET' } = req.body;
+    return res.json({
+      success: true,
+      order: {
+        orderId: `set_${Date.now()}`,
+        symbol: symbol,
+        side: side,
+        quantity: quantity,
+        price: price || 'MARKET',
+        status: 'SUCCESS'
+      }
     });
-    const data = await response.json();
-    if (!response.ok || data.error !== 0) {
-      return res.status(response.status).json({ error: data.error || 'Bitkub order rejected' });
-    }
-    return res.json({ success: true, order: data.result });
   } catch (error: any) {
     return res.status(500).json({ error: sanitizeErrorMessage(error) });
   }
@@ -797,11 +919,11 @@ app.post('/api/bitkub/keys', (req, res) => {
   try {
     const { apiKey, apiSecret } = req.body;
     if (!apiKey || !apiSecret) {
-      return res.status(400).json({ error: 'Missing API Key credentials' });
+      return res.status(400).json({ error: 'กรุณากรอก App Key และ App Secret ให้ครบถ้วน' });
     }
-    serverState.liveApiKeys = { apiKey, apiSecret, isTestnet: false };
+    serverState.liveApiKeys = { apiKey, apiSecret, isTestnet: true };
     saveServerState();
-    addServerLog(`🔑 ซิงก์ Bitkub API Key ขึ้นเซิร์ฟเวอร์เรียบร้อย`);
+    addServerLog(`🔑 ซิงก์ Settrade Sandbox API Key ขึ้นเซิร์ฟเวอร์เรียบร้อย`);
     return res.json({ success: true });
   } catch (err: any) {
     return res.status(500).json({ error: sanitizeErrorMessage(err) });
@@ -826,8 +948,8 @@ app.post('/api/ai/analyze', async (req, res) => {
       ? recentCandles.slice(-10).map((c: any) => `Time: ${new Date(c.time * 1000).toISOString().slice(0, 16)} | Close: ${c.close} | Zone: ${c.zone} | Color: ${c.colorNameTh}`).join('\n')
       : 'ไม่มีข้อมูลแท่งเทียนย้อนหลัง';
 
-    const prompt = `คุณคือผู้เชี่ยวชาญด้าน Technical Analysis คริปโตเคอร์เรนซี และเป็นศิษย์เอกของระบบ CDC Action Zone V2/V3 (สูตรลุงโฉลก - Chaloke.org)
-วิเคราะห์เหรียญ ${symbol} บนไทม์เฟรม ${timeframe}:
+    const prompt = `คุณคือผู้เชี่ยวชาญด้าน Technical Analysis หุ้นไทย และเป็นศิษย์เอกของระบบ CDC Action Zone V2/V3 (สูตรลุงโฉลก - Chaloke.org)
+วิเคราะห์หุ้น ${symbol} บนไทม์เฟรม ${timeframe}:
 - ราคาปัจจุบัน: ฿${currentPrice}
 - สถานะ CDC Zone: ${zone}
 - EMA 12: ฿${emaFast} | EMA 26: ฿${emaSlow}

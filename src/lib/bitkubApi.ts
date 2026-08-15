@@ -2,26 +2,19 @@ import { KlineData, BitkubTicker24h, OrderBookData, Timeframe } from '../types';
 
 const BITKUB_PUBLIC_BASE = 'https://api.bitkub.com';
 
-/**
- * Helper to convert BASE_QUOTE symbol (e.g. BTC_THB) to Bitkub QUOTE_BASE (e.g. THB_BTC)
- */
 export function toBitkubSymbol(symbol: string): string {
   const clean = symbol.toUpperCase().replace('/', '_');
   if (clean.includes('_')) {
     const [base, quote] = clean.split('_');
     return `${quote}_${base}`;
   }
-  // Fallback
   return `THB_${clean}`;
 }
 
-/**
- * Helper to convert Bitkub QUOTE_BASE symbol (e.g. THB_BTC) to friendly BASE_QUOTE (e.g. BTC_THB)
- */
 export function toFriendlySymbol(bitkubSymbol: string): string {
   if (bitkubSymbol.includes('_')) {
     const [quote, base] = bitkubSymbol.split('_');
-    return `${base}_${quote}`;
+    return base; // Return stock ticker directly e.g. PTT
   }
   return bitkubSymbol;
 }
@@ -181,60 +174,36 @@ export async function fetchOrderBook(symbol = 'BTC_THB', limit = 15): Promise<Or
  */
 export function formatCryptoPrice(price: number | undefined | null): string {
   if (price === undefined || price === null || isNaN(price)) return '฿0.00';
-  if (price === 0) return '฿0.00';
-
-  const absPrice = Math.abs(price);
-  if (absPrice >= 1000) {
-    return `฿${price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  } else if (absPrice >= 1) {
-    return `฿${price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}`;
-  } else if (absPrice >= 0.01) {
-    return `฿${price.toFixed(4)}`;
-  } else if (absPrice >= 0.0001) {
-    return `฿${price.toFixed(6)}`;
-  } else {
-    return `฿${price.toFixed(8)}`;
-  }
+  return `฿${price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 /**
- * Formats crypto quantities/amounts dynamically based on magnitude.
+ * Formats stock quantities/amounts dynamically based on magnitude.
  */
 export function formatCryptoAmount(amount: number | undefined | null): string {
   if (amount === undefined || amount === null || isNaN(amount)) return '0';
-  if (amount === 0) return '0';
-
-  const absAmount = Math.abs(amount);
-  if (absAmount >= 1000) {
-    return amount.toLocaleString('en-US', { maximumFractionDigits: 2 });
-  } else if (absAmount >= 1) {
-    return amount.toLocaleString('en-US', { maximumFractionDigits: 4 });
-  } else if (absAmount >= 0.0001) {
-    return amount.toFixed(6).replace(/0+$/, '').replace(/\.$/, '');
-  } else {
-    return amount.toFixed(8).replace(/0+$/, '').replace(/\.$/, '');
-  }
+  return amount.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 }
 
 /**
- * Popular crypto trading pairs on Bitkub
+ * Popular stock symbols on Thai Stock Market (SET)
  */
 export const POPULAR_PAIRS = [
-  'BTC_THB',
-  'ETH_THB',
-  'KUB_THB',
-  'USDT_THB',
-  'SOL_THB',
-  'XRP_THB',
-  'ADA_THB',
-  'DOGE_THB',
-  'DOT_THB',
-  'NEAR_THB',
-  'OP_THB',
-  'ARB_THB',
-  'LINK_THB',
-  'GALA_THB',
-  'IOST_THB',
+  'PTT',
+  'CPALL',
+  'AOT',
+  'DELTA',
+  'ADVANC',
+  'BDMS',
+  'KBANK',
+  'SCB',
+  'GULF',
+  'PTTEP',
+  'TRUE',
+  'KTB',
+  'CPF',
+  'HMPRO',
+  'SCC',
 ];
 
 export interface SymbolExchangeRules {

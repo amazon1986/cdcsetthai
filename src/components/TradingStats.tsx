@@ -191,14 +191,14 @@ export const TradingStats: React.FC<TradingStatsProps> = ({ trades: propTrades, 
           <div className="space-y-1">
             <label className="text-slate-400 font-medium flex items-center space-x-1.5 mb-1">
               <Coins className="w-3.5 h-3.5 text-slate-500" />
-              <span>เลือกเหรียญ / คู่เทรด</span>
+              <span>เลือกหุ้น (SET)</span>
             </label>
             <select
               value={selectedSymbol}
               onChange={(e) => setSelectedSymbol(e.target.value)}
               className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:border-emerald-500 focus:outline-none"
             >
-              <option value="ALL">🪙 เหรียญทั้งหมด (All Coins)</option>
+              <option value="ALL">📈 หุ้นทั้งหมด (All Stocks)</option>
               {uniqueSymbols.filter(s => s !== 'ALL').map((sym) => (
                 <option key={sym} value={sym}>
                   {sym}
@@ -238,7 +238,7 @@ export const TradingStats: React.FC<TradingStatsProps> = ({ trades: propTrades, 
             >
               <option value="ALL">⚙️ ทุกโหมด (All Modes)</option>
               <option value="PAPER">🟢 Paper Trade (จำลอง)</option>
-              <option value="BITKUB_LIVE">⚡ Live Trade (เงินจริง)</option>
+              <option value="BITKUB_LIVE">⚡ Live Trade (Settrade)</option>
             </select>
           </div>
         </div>
@@ -254,7 +254,7 @@ export const TradingStats: React.FC<TradingStatsProps> = ({ trades: propTrades, 
           </div>
           <div>
             <div className={`text-xl sm:text-2xl font-extrabold ${stats.totalPnl >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-              {stats.totalPnl >= 0 ? '+' : ''}${stats.totalPnl.toFixed(2)}
+              {stats.totalPnl >= 0 ? '+' : ''}฿{stats.totalPnl.toFixed(2)}
             </div>
             <p className="text-[10px] text-slate-500">รวมทุกไม้ที่ปิดแล้วในขอบเขตการกรอง</p>
           </div>
@@ -302,7 +302,7 @@ export const TradingStats: React.FC<TradingStatsProps> = ({ trades: propTrades, 
             <div className="text-xl sm:text-2xl font-extrabold text-white">
               {stats.totalTrades} ไม้
             </div>
-            <p className="text-[10px] text-slate-500">เฉลี่ย PnL {stats.averagePnl >= 0 ? '+' : ''}${stats.averagePnl.toFixed(2)} / ไม้</p>
+            <p className="text-[10px] text-slate-500">เฉลี่ย PnL {stats.averagePnl >= 0 ? '+' : ''}฿{stats.averagePnl.toFixed(2)} / ไม้</p>
           </div>
         </div>
       </div>
@@ -337,7 +337,7 @@ export const TradingStats: React.FC<TradingStatsProps> = ({ trades: propTrades, 
                     contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '12px' }}
                     labelFormatter={(label) => `เทรดไม้ที่ #${label}`}
                     formatter={(value: any, name: any, props: any) => {
-                      if (name === 'pnl') return [`$${value}`, 'กำไรสะสม'];
+                      if (name === 'pnl') return [`฿${value}`, 'กำไรสะสม'];
                       return [value, name];
                     }}
                   />
@@ -388,7 +388,7 @@ export const TradingStats: React.FC<TradingStatsProps> = ({ trades: propTrades, 
                   </div>
                   <span className="text-slate-400">ไม้ที่ชนะสูงสุด</span>
                 </div>
-                <span className="text-xs font-bold text-emerald-400">+${stats.maxWin.toFixed(2)}</span>
+                <span className="text-xs font-bold text-emerald-400">+฿{stats.maxWin.toFixed(2)}</span>
               </div>
 
               <div className="flex items-center justify-between">
@@ -398,7 +398,7 @@ export const TradingStats: React.FC<TradingStatsProps> = ({ trades: propTrades, 
                   </div>
                   <span className="text-slate-400">ไม้ที่แพ้สูงสุด</span>
                 </div>
-                <span className="text-xs font-bold text-rose-400">-${Math.abs(stats.maxLoss).toFixed(2)}</span>
+                <span className="text-xs font-bold text-rose-400">-฿{Math.abs(stats.maxLoss).toFixed(2)}</span>
               </div>
             </div>
           </div>
@@ -422,10 +422,10 @@ export const TradingStats: React.FC<TradingStatsProps> = ({ trades: propTrades, 
             <thead>
               <tr className="bg-slate-950 text-slate-400 border-b border-slate-800">
                 <th className="p-2.5">เวลาปิดไม้</th>
-                <th className="p-2.5">เหรียญ</th>
+                <th className="p-2.5">สัญลักษณ์หุ้น</th>
                 <th className="p-2.5">ฝั่ง</th>
-                <th className="p-2.5">กำไร/ขาดทุน ($)</th>
-                <th className="p-2.5">มูลค่าการเทรด</th>
+                <th className="p-2.5">กำไร/ขาดทุน (฿)</th>
+                <th className="p-2.5">มูลค่าการเทรด (฿)</th>
                 <th className="p-2.5">เหตุผล</th>
                 <th className="p-2.5">โหมด</th>
               </tr>
@@ -455,10 +455,10 @@ export const TradingStats: React.FC<TradingStatsProps> = ({ trades: propTrades, 
                     </td>
                     <td className="p-2.5">
                       <span className={`font-bold ${(t.pnlUsdt || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                        {(t.pnlUsdt || 0) >= 0 ? '+' : ''}${(t.pnlUsdt || 0).toFixed(2)} ({t.pnlPercent ? `${t.pnlPercent >= 0 ? '+' : ''}${t.pnlPercent.toFixed(2)}%` : '-'})
+                        {(t.pnlUsdt || 0) >= 0 ? '+' : ''}฿{(t.pnlUsdt || 0).toFixed(2)} ({t.pnlPercent ? `${t.pnlPercent >= 0 ? '+' : ''}${t.pnlPercent.toFixed(2)}%` : '-'})
                       </span>
                     </td>
-                    <td className="p-2.5">${t.usdtValue.toFixed(2)}</td>
+                    <td className="p-2.5">฿{t.usdtValue.toFixed(2)}</td>
                     <td className="p-2.5 text-slate-400 font-sans">{t.reason}</td>
                     <td className="p-2.5">
                       <span className="text-[10px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded">

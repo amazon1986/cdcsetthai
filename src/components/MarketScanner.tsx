@@ -25,19 +25,21 @@ interface MarketScannerProps {
 }
 
 const PRESET_SUGGESTIONS = [
-  'BTC_THB',
-  'ETH_THB',
-  'BNB_THB',
-  'ADA_THB',
-  'DOGE_THB',
-  'XRP_THB',
-  'SOL_THB',
-  'DOT_THB',
-  'NEAR_THB',
-  'LINK_THB',
-  'LTC_THB',
-  'KUB_THB',
-  'USDT_THB',
+  'PTT',
+  'CPALL',
+  'AOT',
+  'DELTA',
+  'ADVANC',
+  'BDMS',
+  'KBANK',
+  'SCB',
+  'GULF',
+  'PTTEP',
+  'TRUE',
+  'KTB',
+  'CPF',
+  'HMPRO',
+  'SCC',
 ];
 
 export const MarketScanner: React.FC<MarketScannerProps> = ({ onSelectCoin }) => {
@@ -118,20 +120,20 @@ export const MarketScanner: React.FC<MarketScannerProps> = ({ onSelectCoin }) =>
     setInputError(null);
     setSuccessMsg(null);
 
-    const raw = (symbolToAdd || newSymbolInput).trim().toUpperCase().replace(/[\/\s-]/g, '_');
+    const raw = (symbolToAdd || newSymbolInput).trim().toUpperCase();
     if (!raw) {
-      setInputError('กรุณากรอกชื่อคู่เหรียญ (เช่น BTC_THB)');
+      setInputError('กรุณากรอกชื่อหุ้น (เช่น PTT)');
       return;
     }
 
     // Validation
-    if (!/^[A-Z0-9]+_[A-Z0-9]+$/.test(raw)) {
-      setInputError('รูปแบบสัญลักษณ์ไม่ถูกต้อง (เช่น BTC_THB)');
+    if (!/^[A-Z0-9.]+$/.test(raw)) {
+      setInputError('รูปแบบสัญลักษณ์ไม่ถูกต้อง (เช่น PTT หรือ PTT.BK)');
       return;
     }
 
     if (coinList.includes(raw)) {
-      setInputError(`คู่เหรียญ ${raw} มีอยู่ในรายการแล้ว`);
+      setInputError(`หุ้น ${raw} มีอยู่ในรายการแล้ว`);
       return;
     }
 
@@ -139,7 +141,7 @@ export const MarketScanner: React.FC<MarketScannerProps> = ({ onSelectCoin }) =>
     setCoinList(updated);
     saveStoredSymbols(updated);
     setNewSymbolInput('');
-    setSuccessMsg(`เพิ่มเหรียญ ${raw} เรียบร้อยแล้ว`);
+    setSuccessMsg(`เพิ่มหุ้น ${raw} เรียบร้อยแล้ว`);
 
     setTimeout(() => setSuccessMsg(null), 3000);
 
@@ -154,20 +156,20 @@ export const MarketScanner: React.FC<MarketScannerProps> = ({ onSelectCoin }) =>
 
     if (hasOpenPos) {
       const confirmDelete = window.confirm(
-        `⚠️ เหรียญ ${symbolToDelete} มีโพซิชันที่เปิดอยู่ในการเทรดจำลอง คุณแน่ใจหรือไม่ว่าต้องการลบออกจากรายการสแกน?`
+        `⚠️ หุ้น ${symbolToDelete} มีโพซิชันที่เปิดอยู่ในการเทรดจำลอง คุณแน่ใจหรือไม่ว่าต้องการลบออกจากรายการสแกน?`
       );
       if (!confirmDelete) return;
     }
 
     const updated = coinList.filter((s) => s !== symbolToDelete);
     if (updated.length === 0) {
-      alert('ต้องมีเหรียญอย่างน้อย 1 คู่ในรายการ');
+      alert('ต้องมีหุ้นอย่างน้อย 1 ตัวในรายการ');
       return;
     }
 
     setCoinList(updated);
     saveStoredSymbols(updated);
-    setSuccessMsg(`ลบเหรียญ ${symbolToDelete} เรียบร้อยแล้ว`);
+    setSuccessMsg(`ลบหุ้น ${symbolToDelete} เรียบร้อยแล้ว`);
     setTimeout(() => setSuccessMsg(null), 3000);
 
     // Filter results directly & re-scan
@@ -176,10 +178,10 @@ export const MarketScanner: React.FC<MarketScannerProps> = ({ onSelectCoin }) =>
 
   // Reset to default popular pairs
   const handleResetDefault = () => {
-    if (window.confirm('คุณต้องการรีเซ็ตรายการเหรียญทั้งหมดกลับเป็นค่าเริ่มต้น (13 คู่เหรียญหลัก) หรือไม่?')) {
+    if (window.confirm('คุณต้องการรีเซ็ตรายการหุ้นทั้งหมดกลับเป็นค่าเริ่มต้น (15 หุ้นหลัก) หรือไม่?')) {
       setCoinList(POPULAR_PAIRS);
       saveStoredSymbols(POPULAR_PAIRS);
-      setSuccessMsg('รีเซ็ตรายการเหรียญเป็นค่าเริ่มต้นแล้ว');
+      setSuccessMsg('รีเซ็ตรายการหุ้นเป็นค่าเริ่มต้นแล้ว');
       setTimeout(() => setSuccessMsg(null), 3000);
       runScanner(POPULAR_PAIRS);
     }
@@ -201,14 +203,14 @@ export const MarketScanner: React.FC<MarketScannerProps> = ({ onSelectCoin }) =>
           <div className="flex items-center gap-2">
             <Search className="w-5 h-5 text-emerald-400" />
             <h3 className="text-base font-bold text-white">
-              ระบบสแกนสัญญาณ CDC Action Zone V2 (Multi-Coin Scanner)
+              ระบบสแกนสัญญาณ CDC Action Zone V2 (Multi-Stock Scanner)
             </h3>
             <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-bold">
-              {coinList.length} คู่เหรียญ
+              {coinList.length} หุ้น
             </span>
           </div>
           <p className="text-xs text-slate-400 mt-0.5">
-            สแกนหาเหรียญคริปโตบน Bitkub ที่กำลังตัดเข้า <span className="text-blue-400 font-bold">โซนฟ้า (สัญญาณซื้อ)</span> หรือ <span className="text-emerald-400 font-bold">โซนเขียว (ขาขึ้น)</span>
+            สแกนหาหุ้นบนตลาดหลักทรัพย์ไทย (SET) ที่กำลังตัดเข้า <span className="text-blue-400 font-bold">โซนฟ้า (สัญญาณซื้อ)</span> หรือ <span className="text-emerald-400 font-bold">โซนเขียว (ขาขึ้น)</span>
           </p>
         </div>
 
@@ -223,7 +225,7 @@ export const MarketScanner: React.FC<MarketScannerProps> = ({ onSelectCoin }) =>
             }`}
           >
             <SlidersHorizontal className="w-3.5 h-3.5" />
-            <span>{isManageOpen ? 'ซ่อนการจัดการเหรียญ' : '⚙️ เพิ่ม/ลบ คู่เหรียญ'}</span>
+            <span>{isManageOpen ? 'ซ่อนการจัดการหุ้น' : '⚙️ เพิ่ม/ลบ หุ้น'}</span>
           </button>
 
           {/* Timeframe Selector */}
@@ -260,16 +262,16 @@ export const MarketScanner: React.FC<MarketScannerProps> = ({ onSelectCoin }) =>
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800/80 pb-3">
             <div className="flex items-center space-x-2">
               <Coins className="w-4 h-4 text-emerald-400" />
-              <h4 className="text-sm font-bold text-white">จัดการรายชื่อเหรียญสำหรับสแกนและเทรดอัตโนมัติ (Watchlist)</h4>
+              <h4 className="text-sm font-bold text-white">จัดการรายชื่อหุ้นสำหรับสแกนและเทรดอัตโนมัติ (Watchlist)</h4>
             </div>
 
             <button
               onClick={handleResetDefault}
               className="text-xs text-slate-400 hover:text-slate-200 flex items-center space-x-1 px-2.5 py-1 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-lg transition"
-              title="คืนค่ากลับเป็นคู่เหรียญหลักเริ่มต้นของ Bitkub"
+              title="คืนค่ากลับเป็นหุ้นหลักเริ่มต้น"
             >
               <RotateCcw className="w-3 h-3" />
-              <span>รีเซ็ตค่าเริ่มต้น ({POPULAR_PAIRS.length} เหรียญ)</span>
+              <span>รีเซ็ตค่าเริ่มต้น ({POPULAR_PAIRS.length} หุ้น)</span>
             </button>
           </div>
 
@@ -285,7 +287,7 @@ export const MarketScanner: React.FC<MarketScannerProps> = ({ onSelectCoin }) =>
               <div className="relative flex-1">
                 <input
                   type="text"
-                  placeholder="พิมพ์ชื่อเหรียญ เช่น BTC_THB, ETH_THB, USDT_THB..."
+                  placeholder="พิมพ์ชื่อหุ้น เช่น PTT, CPALL, AOT..."
                   value={newSymbolInput}
                   onChange={(e) => {
                     setNewSymbolInput(e.target.value.toUpperCase());
@@ -300,7 +302,7 @@ export const MarketScanner: React.FC<MarketScannerProps> = ({ onSelectCoin }) =>
                 className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow transition flex items-center justify-center space-x-1.5 whitespace-nowrap"
               >
                 <Plus className="w-4 h-4" />
-                <span>เพิ่มคู่เหรียญ</span>
+                <span>เพิ่มหุ้น</span>
               </button>
             </form>
 
@@ -322,7 +324,7 @@ export const MarketScanner: React.FC<MarketScannerProps> = ({ onSelectCoin }) =>
           {/* Quick Suggestions Chips */}
           {availableSuggestions.length > 0 && (
             <div className="space-y-1.5">
-              <span className="text-[11px] text-slate-400 font-medium">💡 แนะนำเหรียญยอดนิยม (กดเพื่อเพิ่มทันที):</span>
+              <span className="text-[11px] text-slate-400 font-medium">💡 แนะนำหุ้นยอดนิยม (กดเพื่อเพิ่มทันที):</span>
               <div className="flex flex-wrap gap-1.5">
                 {availableSuggestions.slice(0, 10).map((sug) => (
                   <button
@@ -340,8 +342,8 @@ export const MarketScanner: React.FC<MarketScannerProps> = ({ onSelectCoin }) =>
           {/* Active Monitored Coins List */}
           <div className="space-y-2 pt-2 border-t border-slate-800/80">
             <div className="flex justify-between items-center text-xs text-slate-400">
-              <span>รายการเหรียญที่กำลังสแกนอยู่ ({coinList.length} คู่):</span>
-              <span className="text-[10px] text-slate-500">กดปุ่ม ✖ บนเหรียญเพื่อลบ</span>
+              <span>รายการหุ้นที่กำลังสแกนอยู่ ({coinList.length} ตัว):</span>
+              <span className="text-[10px] text-slate-500">กดปุ่ม ✖ บนหุ้นเพื่อลบ</span>
             </div>
 
             <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto scrollbar-thin p-1">
@@ -438,7 +440,7 @@ export const MarketScanner: React.FC<MarketScannerProps> = ({ onSelectCoin }) =>
         {/* Search input */}
         <input
           type="text"
-          placeholder="ค้นหาชื่อเหรียญ..."
+          placeholder="ค้นหาชื่อหุ้น..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500 w-44"
@@ -450,9 +452,9 @@ export const MarketScanner: React.FC<MarketScannerProps> = ({ onSelectCoin }) =>
         {filteredCoins.length === 0 && !isScanning ? (
           <div className="col-span-full p-8 text-center bg-slate-950/60 border border-dashed border-slate-800 rounded-2xl text-slate-400 text-xs space-y-2">
             <Coins className="w-8 h-8 mx-auto text-slate-600" />
-            <p className="font-bold text-white">ไม่พบเหรียญที่ตรงกับเงื่อนไขการค้นหาหรือตัวกรอง</p>
+            <p className="font-bold text-white">ไม่พบหุ้นที่ตรงกับเงื่อนไขการค้นหาหรือตัวกรอง</p>
             <p className="text-slate-500">
-              ลองกดปุ่ม <span className="text-emerald-400">"⚙️ เพิ่ม/ลบ คู่เหรียญ"</span> เพื่อเพิ่มเหรียญใหม่ หรือเปลี่ยนตัวกรองโซน
+              ลองกดปุ่ม <span className="text-emerald-400">"⚙️ เพิ่ม/ลบ หุ้น"</span> เพื่อเพิ่มหุ้นใหม่ หรือเปลี่ยนตัวกรองโซน
             </p>
           </div>
         ) : (
@@ -464,7 +466,7 @@ export const MarketScanner: React.FC<MarketScannerProps> = ({ onSelectCoin }) =>
               <div className="flex items-center justify-between">
                 <div>
                   <span className="font-extrabold text-white text-base font-mono">{coin.symbol}</span>
-                  <span className="text-[10px] text-slate-500 block font-mono">Bitkub Spot</span>
+                  <span className="text-[10px] text-slate-500 block font-mono">SET Market</span>
                 </div>
                 <span
                   className="px-2.5 py-0.5 rounded-full text-xs font-bold text-slate-950 shadow-sm"

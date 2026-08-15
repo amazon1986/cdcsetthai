@@ -143,7 +143,7 @@ export const TradeHistoryTable: React.FC<TradeHistoryTableProps> = ({
             <table className="w-full text-left border-collapse text-xs font-mono">
               <thead>
                 <tr className="bg-slate-950 text-slate-400 border-b border-slate-800">
-                  <th className="p-2.5">เหรียญ</th>
+                  <th className="p-2.5">สัญลักษณ์หุ้น</th>
                   <th className="p-2.5">ฝั่ง</th>
                   <th className="p-2.5">ราคาเข้า (Entry)</th>
                   <th className="p-2.5">ราคาปัจจุบัน</th>
@@ -200,7 +200,7 @@ export const TradeHistoryTable: React.FC<TradeHistoryTableProps> = ({
                             className="px-3 py-1 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 rounded-xl text-xs font-bold transition flex items-center space-x-1.5 ml-auto"
                           >
                             <XCircle className="w-3.5 h-3.5" />
-                            <span>ปิดสัญญา</span>
+                            <span>ปิดโพสิชัน</span>
                           </button>
                         )}
                       </td>

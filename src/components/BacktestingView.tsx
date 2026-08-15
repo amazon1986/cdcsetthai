@@ -15,10 +15,10 @@ import {
 import { Play, TrendingUp, Award, AlertTriangle, ArrowUpRight, ArrowDownRight, RefreshCw, BarChart2 } from 'lucide-react';
 
 export const BacktestingView: React.FC = () => {
-  const [symbol, setSymbol] = useState('BTC_THB');
+  const [symbol, setSymbol] = useState('PTT');
   const [timeframe, setTimeframe] = useState<Timeframe>('1d');
   const [candleCount, setCandleCount] = useState(500);
-  const [initialCapital, setInitialCapital] = useState<number | string>(30000);
+  const [initialCapital, setInitialCapital] = useState<number | string>(100000);
   const [stopLossPct, setStopLossPct] = useState<number | string>(5);
   const [takeProfitPct, setTakeProfitPct] = useState<number | string>(20);
   const [directionMode, setDirectionMode] = useState<'LONG_ONLY' | 'SHORT_ONLY' | 'BOTH'>('LONG_ONLY');
@@ -267,7 +267,7 @@ export const BacktestingView: React.FC = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-xs">
           {/* Symbol */}
           <div>
-            <label className="text-slate-300 font-medium block mb-1">เหรียญคริปโต</label>
+            <label className="text-slate-300 font-medium block mb-1">สัญลักษณ์หุ้น (SET)</label>
             <select
               value={symbol}
               onChange={(e) => setSymbol(e.target.value)}

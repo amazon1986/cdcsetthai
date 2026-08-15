@@ -92,8 +92,8 @@ export default function App() {
   const [candles, setCandles] = useState<KlineData[]>([]);
   const [botCandles, setBotCandles] = useState<KlineData[]>([]);
   const [isLoadingCandles, setIsLoadingCandles] = useState(false);
-  const [btcPrice, setBtcPrice] = useState<number | undefined>(undefined);
-  const [ethPrice, setEthPrice] = useState<number | undefined>(undefined);
+  const [pttPrice, setPttPrice] = useState<number | undefined>(undefined);
+  const [cpallPrice, setCpallPrice] = useState<number | undefined>(undefined);
   const [allTickers, setAllTickers] = useState<BitkubTicker24h[]>([]);
 
   // Notification Toast State
@@ -105,7 +105,7 @@ export default function App() {
   };
 
   const [currentPriceInfo, setCurrentPriceInfo] = useState<{ symbol: string; price: number }>({
-    symbol: 'BTC_THB',
+    symbol: 'PTT',
     price: 0,
   });
 
@@ -137,14 +137,14 @@ export default function App() {
     }
   }, [botConfig.symbol, botConfig.timeframe, chartTimeframe, botConfig.fastEmaPeriod, botConfig.slowEmaPeriod]);
 
-  // 2. Fetch All Crypto Ticker Prices for Header Running Ticker Tape
+  // 2. Fetch All Stock Prices for Header Running Ticker Tape
   const loadTickers = useCallback(async () => {
     try {
       const raw = await fetchBitkubTicker24h();
       if (raw && raw.length > 0) {
         const popularSet = new Set(POPULAR_PAIRS);
         const filtered = raw
-          .filter((t) => popularSet.has(t.symbol) || t.symbol.endsWith('_THB'))
+          .filter((t) => popularSet.has(t.symbol))
           .sort((a, b) => {
             const indexA = POPULAR_PAIRS.indexOf(a.symbol);
             const indexB = POPULAR_PAIRS.indexOf(b.symbol);
@@ -157,10 +157,10 @@ export default function App() {
 
         setAllTickers(filtered);
 
-        const btc = raw.find((t) => t.symbol === 'BTC_THB');
-        const eth = raw.find((t) => t.symbol === 'ETH_THB');
-        if (btc) setBtcPrice(btc.lastPrice);
-        if (eth) setEthPrice(eth.lastPrice);
+        const ptt = raw.find((t) => t.symbol === 'PTT');
+        const cpall = raw.find((t) => t.symbol === 'CPALL');
+        if (ptt) setPttPrice(ptt.lastPrice);
+        if (cpall) setCpallPrice(cpall.lastPrice);
       }
     } catch (err) {
       console.warn('Ticker update failed:', err);
@@ -393,13 +393,13 @@ export default function App() {
           handleSaveBotConfig({ ...botConfig, isActive: nextState });
           showToast(nextState ? 'เปิดระบบอัตโนมัติ CDC Bot แล้ว' : 'หยุดระบบอัตโนมัติ CDC Bot แล้ว', 'info');
         }}
-        btcPrice={btcPrice}
-        ethPrice={ethPrice}
+        btcPrice={pttPrice}
+        ethPrice={cpallPrice}
         tickers={allTickers}
         onSelectSymbol={(selectedSymbol) => {
           handleSaveBotConfig({ ...botConfig, symbol: selectedSymbol });
           setActiveTab('chart');
-          showToast(`เลือกเหรียญ ${selectedSymbol} ขึ้นชาร์ตเรียบร้อยแล้ว`, 'info');
+          showToast(`เลือกหุ้น ${selectedSymbol} ขึ้นชาร์ตเรียบร้อยแล้ว`, 'info');
         }}
       />
 
