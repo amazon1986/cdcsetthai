@@ -262,11 +262,11 @@ export default function App() {
   };
 
   const handleResetPaperAccount = async () => {
-    if (confirm('คุณต้องการรีเซ็ตยอดเงินบัญชีทดลอง (Paper Trading) เป็น ฿30,000 THB หรือไม่?')) {
+    if (confirm('คุณต้องการรีเซ็ตยอดเงินบัญชีทดลอง (Paper Trading) เป็น ฿10,000 THB หรือไม่?')) {
       await resetBotServerPaperAccount();
       setPaperAccount(DEFAULT_PAPER_ACCOUNT);
       savePaperAccount(DEFAULT_PAPER_ACCOUNT);
-      showToast('รีเซ็ตยอดเงินพอร์ตจำลองเป็น ฿30,000 THB แล้ว', 'info');
+      showToast('รีเซ็ตยอดเงินพอร์ตจำลองเป็น ฿10,000 THB แล้ว', 'info');
     }
   };
 

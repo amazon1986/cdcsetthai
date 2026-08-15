@@ -89,8 +89,8 @@ const DEFAULT_SERVER_STATE: ServerState = {
     isActive: false,
   },
   paperAccount: {
-    usdtBalance: 30000,
-    initialUsdtBalance: 30000,
+    usdtBalance: 10000,
+    initialUsdtBalance: 10000,
     activePositions: [],
     totalTrades: 0,
     winningTrades: 0,
@@ -634,8 +634,8 @@ app.post('/api/bot/clear-logs', (req, res) => {
 // 7. Reset Paper Account
 app.post('/api/bot/reset-paper', (req, res) => {
   serverState.paperAccount = {
-    usdtBalance: 1000,
-    initialUsdtBalance: 1000,
+    usdtBalance: 10000,
+    initialUsdtBalance: 10000,
     activePositions: [],
     totalTrades: 0,
     winningTrades: 0,

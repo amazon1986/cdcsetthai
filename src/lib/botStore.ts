@@ -36,8 +36,8 @@ export const DEFAULT_BOT_CONFIG: BotConfig = {
 };
 
 export const DEFAULT_PAPER_ACCOUNT: PaperAccount = {
-  usdtBalance: 30000, // Initial THB balance
-  initialUsdtBalance: 30000,
+  usdtBalance: 10000, // Initial THB balance
+  initialUsdtBalance: 10000,
   activePositions: [],
   totalTrades: 0,
   winningTrades: 0,
