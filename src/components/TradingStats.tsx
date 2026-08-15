@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { getStoredTradeHistory } from '../lib/botStore';
 import { ExecutedTrade } from '../types';
-import { formatCryptoPrice } from '../lib/binanceApi';
+import { formatCryptoPrice } from '../lib/bitkubApi';
 import {
   AreaChart,
   Area,

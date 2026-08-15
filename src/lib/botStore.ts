@@ -1,23 +1,23 @@
-import { BotConfig, PaperAccount, ExecutedTrade, BinanceApiKeys, PaperPosition, Timeframe } from '../types';
+import { BotConfig, PaperAccount, ExecutedTrade, BitkubApiKeys, PaperPosition, Timeframe } from '../types';
 import { encryptText, decryptText } from './crypto';
-import { POPULAR_PAIRS } from './binanceApi';
+import { POPULAR_PAIRS } from './bitkubApi';
 
 const STORAGE_KEYS = {
   BOT_CONFIG: 'cdc_bot_config_v2',
   PAPER_ACCOUNT: 'cdc_paper_account_v2',
   TRADE_HISTORY: 'cdc_trade_history_v2',
-  BINANCE_KEYS: 'cdc_binance_keys_v2',
+  BITKUB_KEYS: 'cdc_bitkub_keys_v2',
   BOT_LOGS: 'cdc_bot_logs_v2',
   CUSTOM_SYMBOLS: 'cdc_custom_symbols_v2',
 };
 
 export const DEFAULT_BOT_CONFIG: BotConfig = {
   id: 'default_bot',
-  symbol: 'BTCUSDT',
+  symbol: 'BTC_THB',
   timeframe: '1d', // 🚀 Default to 1D (Daily) as requested by user
   fastEmaPeriod: 12,
   slowEmaPeriod: 26,
-  tradeAmountUsdt: 200,
+  tradeAmountUsdt: 1000, // THB value
   usePercentBalance: true,
   balancePercent: 20,
   positionSizingMode: 'EQUAL_WEIGHT', // 🎯 ถัวเฉลี่ยเท่ากันทุกเหรียญ (Equal Weight Sizing)
@@ -36,8 +36,8 @@ export const DEFAULT_BOT_CONFIG: BotConfig = {
 };
 
 export const DEFAULT_PAPER_ACCOUNT: PaperAccount = {
-  usdtBalance: 1000,
-  initialUsdtBalance: 1000,
+  usdtBalance: 30000, // Initial THB balance
+  initialUsdtBalance: 30000,
   activePositions: [],
   totalTrades: 0,
   winningTrades: 0,
@@ -104,28 +104,26 @@ export function addTradeToHistory(trade: ExecutedTrade): void {
   saveTradeHistory(updated);
 }
 
-export function getStoredBinanceKeys(): BinanceApiKeys {
+export function getStoredBitkubKeys(): BitkubApiKeys {
   try {
-    const raw = localStorage.getItem(STORAGE_KEYS.BINANCE_KEYS);
-    if (!raw) return { apiKey: '', apiSecret: '', isTestnet: true };
+    const raw = localStorage.getItem(STORAGE_KEYS.BITKUB_KEYS);
+    if (!raw) return { apiKey: '', apiSecret: '' };
     const parsed = JSON.parse(raw);
     return {
       apiKey: decryptText(parsed.apiKey),
       apiSecret: decryptText(parsed.apiSecret),
-      isTestnet: parsed.isTestnet !== false, // Default to true
     };
   } catch {
-    return { apiKey: '', apiSecret: '', isTestnet: true };
+    return { apiKey: '', apiSecret: '' };
   }
 }
 
-export function saveBinanceKeys(keys: BinanceApiKeys): void {
+export function saveBitkubKeys(keys: BitkubApiKeys): void {
   const encryptedKeys = {
     apiKey: encryptText(keys.apiKey),
     apiSecret: encryptText(keys.apiSecret),
-    isTestnet: keys.isTestnet,
   };
-  localStorage.setItem(STORAGE_KEYS.BINANCE_KEYS, JSON.stringify(encryptedKeys));
+  localStorage.setItem(STORAGE_KEYS.BITKUB_KEYS, JSON.stringify(encryptedKeys));
 }
 
 export function getStoredLogs(): string[] {

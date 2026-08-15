@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Timeframe, BacktestResult, BacktestTrade } from '../types';
-import { fetchBinanceKlines, formatCryptoPrice } from '../lib/binanceApi';
+import { fetchBitkubKlines, formatCryptoPrice } from '../lib/bitkubApi';
 import { getStoredSymbols } from '../lib/botStore';
 import { calculateCDCActionZone } from '../lib/cdcIndicator';
 import {
@@ -15,13 +15,13 @@ import {
 import { Play, TrendingUp, Award, AlertTriangle, ArrowUpRight, ArrowDownRight, RefreshCw, BarChart2 } from 'lucide-react';
 
 export const BacktestingView: React.FC = () => {
-  const [symbol, setSymbol] = useState('BTCUSDT');
+  const [symbol, setSymbol] = useState('BTC_THB');
   const [timeframe, setTimeframe] = useState<Timeframe>('1d');
   const [candleCount, setCandleCount] = useState(500);
-  const [initialCapital, setInitialCapital] = useState<number | string>(1000);
+  const [initialCapital, setInitialCapital] = useState<number | string>(30000);
   const [stopLossPct, setStopLossPct] = useState<number | string>(5);
   const [takeProfitPct, setTakeProfitPct] = useState<number | string>(20);
-  const [directionMode, setDirectionMode] = useState<'LONG_ONLY' | 'SHORT_ONLY' | 'BOTH'>('BOTH');
+  const [directionMode, setDirectionMode] = useState<'LONG_ONLY' | 'SHORT_ONLY' | 'BOTH'>('LONG_ONLY');
   const [buyZone, setBuyZone] = useState<'BLUE' | 'GREEN'>('BLUE');
 
   const [isLoading, setIsLoading] = useState(false);
@@ -30,7 +30,7 @@ export const BacktestingView: React.FC = () => {
   const runBacktest = async () => {
     setIsLoading(true);
     try {
-      const rawCandles = await fetchBinanceKlines(symbol, timeframe, candleCount);
+      const rawCandles = await fetchBitkubKlines(symbol, timeframe, candleCount);
       const cdcCandles = calculateCDCActionZone(rawCandles, 12, 26);
 
       if (cdcCandles.length < 30) {
@@ -313,7 +313,7 @@ export const BacktestingView: React.FC = () => {
 
           {/* Initial Capital */}
           <div>
-            <label className="text-slate-300 font-medium block mb-1">เงินทุนเริ่มต้น (USDT)</label>
+            <label className="text-slate-300 font-medium block mb-1">เงินทุนเริ่มต้น (THB)</label>
             <input
               type="number"
               value={initialCapital}
@@ -344,19 +344,7 @@ export const BacktestingView: React.FC = () => {
             />
           </div>
 
-          {/* Direction Mode */}
-          <div>
-            <label className="text-slate-300 font-medium block mb-1">ทิศทางการทดสอบ</label>
-            <select
-              value={directionMode}
-              onChange={(e) => setDirectionMode(e.target.value as any)}
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:border-emerald-500"
-            >
-              <option value="BOTH">🔄 LONG + SHORT (เทรดทั้ง 2 ฝั่ง)</option>
-              <option value="LONG_ONLY">🟢 LONG Only (ซื้อขาขึ้นอย่างเดียว)</option>
-              <option value="SHORT_ONLY">🔴 SHORT Only (เก็งขาลงอย่างเดียว)</option>
-            </select>
-          </div>
+          {/* Direction Mode (Locked for Spot) */}
 
           {/* Buy Trigger Zone */}
           <div>
@@ -411,7 +399,7 @@ export const BacktestingView: React.FC = () => {
                 {result.totalReturnPercent}%
               </div>
               <span className="text-[10px] text-slate-500 block font-mono">
-                ${result.finalCapital.toLocaleString()} USDT
+                ฿{result.finalCapital.toLocaleString()} THB
               </span>
             </div>
 
@@ -477,7 +465,7 @@ export const BacktestingView: React.FC = () => {
                 <span>กราฟการเติบโตของพอร์ต (Portfolio Equity Curve)</span>
               </h4>
               <span className="text-xs text-slate-400 font-mono">
-                เงินทุนสุดท้าย: <strong className="text-emerald-400">${result.finalCapital.toLocaleString()} USDT</strong>
+                เงินทุนสุดท้าย: <strong className="text-emerald-400">฿{result.finalCapital.toLocaleString()} THB</strong>
               </span>
             </div>
             <div className="h-64 w-full">
@@ -520,7 +508,7 @@ export const BacktestingView: React.FC = () => {
                     <th className="p-2.5">วันที่ปิด</th>
                     <th className="p-2.5">ราคาเข้า</th>
                     <th className="p-2.5">ราคาออก</th>
-                    <th className="p-2.5">กำไร/ขาดทุน ($)</th>
+                    <th className="p-2.5">กำไร/ขาดทุน (฿)</th>
                     <th className="p-2.5">กำไร (%)</th>
                     <th className="p-2.5">เหตุผลการออก</th>
                   </tr>
@@ -549,7 +537,7 @@ export const BacktestingView: React.FC = () => {
                           t.pnlUsdt >= 0 ? 'text-emerald-400' : 'text-rose-400'
                         }`}
                       >
-                        {t.pnlUsdt >= 0 ? '+' : ''}${t.pnlUsdt}
+                        {t.pnlUsdt >= 0 ? '+' : ''}฿{t.pnlUsdt}
                       </td>
                       <td
                         className={`p-2.5 font-bold ${

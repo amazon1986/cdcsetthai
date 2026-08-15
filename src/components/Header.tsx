@@ -1,6 +1,6 @@
 import React from 'react';
-import { BotConfig, PaperAccount, BinanceTicker24h } from '../types';
-import { formatCryptoPrice } from '../lib/binanceApi';
+import { BotConfig, PaperAccount, BitkubTicker24h } from '../types';
+import { formatCryptoPrice } from '../lib/bitkubApi';
 import {
   TrendingUp,
   Cpu,
@@ -27,7 +27,7 @@ interface HeaderProps {
   onToggleBot: () => void;
   btcPrice?: number;
   ethPrice?: number;
-  tickers?: BinanceTicker24h[];
+  tickers?: BitkubTicker24h[];
   onSelectSymbol?: (symbol: string) => void;
 }
 
@@ -62,7 +62,7 @@ export const Header: React.FC<HeaderProps> = ({
                 CDC Action Zone <span className="text-emerald-400 font-extrabold">V2</span>
               </h1>
               <span className="text-xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full font-medium">
-                Binance Bot
+                Bitkub Bot
               </span>
             </div>
             <p className="text-xs text-slate-400">ระบบบอทเทรดคริปโตตามสัญญาณอินดิเคเตอร์ Chaloke.org</p>
@@ -89,7 +89,7 @@ export const Header: React.FC<HeaderProps> = ({
                     title={`คลิกเพื่อดูชาร์ต ${t.symbol}`}
                   >
                     <span className="text-slate-400 font-semibold group-hover/item:text-emerald-400 transition">
-                      {t.symbol.replace('USDT', '')}/USDT:
+                      {t.symbol.includes('_') ? t.symbol.split('_').join('/') : t.symbol}:
                     </span>
                     <span className="font-mono font-bold text-white">{formattedPrice}</span>
                     <span
@@ -108,10 +108,10 @@ export const Header: React.FC<HeaderProps> = ({
             <div className="flex items-center justify-center space-x-4 text-xs text-slate-400 py-0.5">
               <span className="animate-pulse">กำลังดึงราคาเหรียญทั้งหมดในระบบ...</span>
               {btcPrice && (
-                <span className="font-mono text-emerald-400">BTC: ${btcPrice.toLocaleString()}</span>
+                <span className="font-mono text-emerald-400">BTC: ฿{btcPrice.toLocaleString()}</span>
               )}
               {ethPrice && (
-                <span className="font-mono text-cyan-400">ETH: ${ethPrice.toLocaleString()}</span>
+                <span className="font-mono text-cyan-400">ETH: ฿{ethPrice.toLocaleString()}</span>
               )}
             </div>
           )}
@@ -126,12 +126,12 @@ export const Header: React.FC<HeaderProps> = ({
               <div>
                 <span className="text-slate-400 block text-[10px] leading-tight">Paper Capital</span>
                 <span className="font-mono font-bold text-white text-xs">
-                  ${paperAccount.usdtBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  ฿{paperAccount.usdtBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
               </div>
               <button
                 onClick={onResetPaperAccount}
-                title="Reset Paper Account Balance ($1,000)"
+                title="Reset Paper Account Balance (฿30,000)"
                 className="text-slate-400 hover:text-white p-1 rounded hover:bg-slate-700 transition"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
@@ -140,7 +140,7 @@ export const Header: React.FC<HeaderProps> = ({
           ) : (
             <div className="flex items-center space-x-2 bg-amber-500/10 border border-amber-500/30 px-3 py-1.5 rounded-lg text-xs text-amber-400">
               <ShieldAlert className="w-4 h-4 text-amber-400" />
-              <span className="font-semibold">Binance Live API</span>
+              <span className="font-semibold">Bitkub Live API</span>
             </div>
           )}
 
@@ -170,7 +170,7 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             onClick={onOpenSettings}
             className="p-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-white rounded-lg transition"
-            title="ตั้งค่า Binance API Key / Mode"
+            title="ตั้งค่า Bitkub API Key / Mode"
           >
             <Settings className="w-4 h-4" />
           </button>

@@ -20,7 +20,7 @@ export interface KlineData {
   actionRecommendation?: string;
 }
 
-export interface BinanceTicker24h {
+export interface BitkubTicker24h {
   symbol: string;
   lastPrice: number;
   priceChangePercent: number;
@@ -59,7 +59,7 @@ export interface BotConfig {
   trailingStopPercent: number;
   buyOnSignal: ('BLUE' | 'GREEN')[];
   sellOnSignal: ('YELLOW' | 'RED')[];
-  mode: 'PAPER' | 'BINANCE_LIVE';
+  mode: 'PAPER' | 'BITKUB_LIVE';
   marketType?: 'SPOT' | 'FUTURES';
   scanMode?: 'SINGLE' | 'MULTI_SCAN';
   directionMode?: 'LONG_ONLY' | 'SHORT_ONLY' | 'BOTH';
@@ -107,7 +107,7 @@ export interface ExecutedTrade {
   pnlPercent?: number;
   reason: string;
   timestamp: number;
-  mode: 'PAPER' | 'BINANCE_LIVE';
+  mode: 'PAPER' | 'BITKUB_LIVE';
 }
 
 export interface BacktestTrade {
@@ -155,12 +155,9 @@ export interface ScannerCoinResult {
   lastSignalTime: string;
 }
 
-export interface BinanceApiKeys {
+export interface BitkubApiKeys {
   apiKey: string;
   apiSecret: string;
-  isTestnet: boolean;
-  marketType?: 'SPOT' | 'FUTURES';
-  marginType?: 'ISOLATED' | 'CROSSED';
 }
 
 export interface AiAnalysisResponse {

@@ -9,7 +9,7 @@ import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
 import { BotConfig, PaperAccount, PaperPosition, ExecutedTrade, KlineData, Timeframe } from './src/types';
 import { calculateCDCActionZone, getCrossoverInfo } from './src/lib/cdcIndicator';
-import { POPULAR_PAIRS } from './src/lib/binanceApi';
+import { POPULAR_PAIRS, toBitkubSymbol } from './src/lib/bitkubApi';
 
 const app = express();
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
@@ -60,20 +60,18 @@ interface ServerState {
   liveApiKeys?: {
     apiKey: string;
     apiSecret: string;
-    isTestnet: boolean;
-    marketType?: 'SPOT' | 'FUTURES';
-    marginType?: 'ISOLATED' | 'CROSSED';
+    isTestnet?: boolean;
   };
 }
 
 const DEFAULT_SERVER_STATE: ServerState = {
   botConfig: {
     id: 'default_bot',
-    symbol: 'BTCUSDT',
+    symbol: 'BTC_THB',
     timeframe: '1d',
     fastEmaPeriod: 12,
     slowEmaPeriod: 26,
-    tradeAmountUsdt: 200,
+    tradeAmountUsdt: 1000,
     usePercentBalance: true,
     balancePercent: 20,
     positionSizingMode: 'EQUAL_WEIGHT',
@@ -91,8 +89,8 @@ const DEFAULT_SERVER_STATE: ServerState = {
     isActive: false,
   },
   paperAccount: {
-    usdtBalance: 1000,
-    initialUsdtBalance: 1000,
+    usdtBalance: 30000,
+    initialUsdtBalance: 30000,
     activePositions: [],
     totalTrades: 0,
     winningTrades: 0,
@@ -157,14 +155,14 @@ loadServerState();
 
 // ==================== INPUT VALIDATION HELPERS ====================
 
-const VALID_SYMBOL_REGEX = /^[A-Z0-9]{2,20}$/;
+const VALID_SYMBOL_REGEX = /^[A-Z0-9_]{2,30}$/;
 const VALID_SIDE_VALUES = ['BUY', 'SELL'];
 const VALID_ORDER_TYPES = ['MARKET', 'LIMIT'];
 const VALID_INTERVALS = ['1m', '3m', '5m', '15m', '30m', '1h', '2h', '4h', '6h', '8h', '12h', '1d', '3d', '1w', '1M'];
 
 function sanitizeSymbol(symbol: string | undefined): string | null {
   if (!symbol) return null;
-  const cleaned = String(symbol).toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const cleaned = String(symbol).toUpperCase().replace(/[^A-Z0-9_]/g, '');
   return VALID_SYMBOL_REGEX.test(cleaned) ? cleaned : null;
 }
 
@@ -176,9 +174,38 @@ function sanitizeErrorMessage(error: any): string {
   return msg.replace(/\b[A-Z]:\\[^\s]+/gi, '[path]').substring(0, 200);
 }
 
-function buildBinanceSignedQuery(queryString: string, secretKey: string): string {
-  const signature = crypto.createHmac('sha256', secretKey).update(queryString).digest('hex');
-  return `${queryString}&signature=${signature}`;
+function buildBitkubSignature(timestamp: number, method: string, path: string, bodyString: string, secretKey: string): string {
+  const payload = `${timestamp}${method.toUpperCase()}${path}${bodyString}`;
+  return crypto.createHmac('sha256', secretKey).update(payload).digest('hex');
+}
+
+// Time sync helper with Bitkub server
+let bitkubTimeOffset = 0;
+const lastTimeSync: Record<string, number> = {};
+
+async function getBitkubTimestamp(): Promise<number> {
+  const now = Date.now();
+  const lastSync = lastTimeSync['bitkub'] || 0;
+
+  if (now - lastSync > 60 * 1000) {
+    try {
+      const start = Date.now();
+      const res = await fetch('https://api.bitkub.com/api/v3/servertime');
+      if (res.ok) {
+        const text = await res.text();
+        const serverTimeSec = parseInt(text, 10);
+        const serverTimeMs = serverTimeSec < 99999999999 ? serverTimeSec * 1000 : serverTimeSec;
+        const end = Date.now();
+        const latency = Math.floor((end - start) / 2);
+        bitkubTimeOffset = serverTimeMs + latency - end;
+        lastTimeSync['bitkub'] = end;
+      }
+    } catch (e) {
+      console.warn('Failed to sync time with Bitkub:', e);
+    }
+  }
+
+  return now + bitkubTimeOffset;
 }
 
 // ==================== SERVER-SIDE BOT SIZING & TRADING ENGINE ====================
@@ -206,18 +233,31 @@ function calculateOrderSize(config: BotConfig, account: PaperAccount): number {
 
 async function fetchKlinesDirect(symbol: string, interval: string, limit = 300): Promise<KlineData[]> {
   try {
-    const url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`;
+    let resolution = '1D';
+    let step = 86400;
+    switch (interval) {
+      case '1m': resolution = '1'; step = 60; break;
+      case '5m': resolution = '5'; step = 300; break;
+      case '15m': resolution = '15'; step = 900; break;
+      case '1h': resolution = '60'; step = 3600; break;
+      case '4h': resolution = '240'; step = 14400; break;
+      case '1d': resolution = '1D'; step = 86400; break;
+      case '1w': resolution = '1W'; step = 604800; break;
+    }
+    const to = Math.floor(Date.now() / 1000);
+    const from = to - (limit * step);
+    const url = `https://api.bitkub.com/tradingview/history?symbol=${symbol.replace('/', '_')}&resolution=${resolution}&from=${from}&to=${to}`;
     const res = await fetch(url);
     if (!res.ok) return [];
     const data = await res.json();
-    if (!Array.isArray(data)) return [];
-    return data.map((d: any) => ({
-      time: Math.floor(d[0] / 1000),
-      open: parseFloat(d[1]),
-      high: parseFloat(d[2]),
-      low: parseFloat(d[3]),
-      close: parseFloat(d[4]),
-      volume: parseFloat(d[5]),
+    if (data.s !== 'ok' || !Array.isArray(data.t)) return [];
+    return data.t.map((t: number, i: number) => ({
+      time: t,
+      open: parseFloat(data.o[i]),
+      high: parseFloat(data.h[i]),
+      low: parseFloat(data.l[i]),
+      close: parseFloat(data.c[i]),
+      volume: parseFloat(data.v[i]),
     }));
   } catch (err) {
     return [];
@@ -312,7 +352,7 @@ async function runServerBotCycle() {
             serverState.tradeHistory = serverState.tradeHistory.slice(0, 500);
           }
 
-          addServerLog(`🛑 [SERVER 24/7 ${exitReason.includes('Liquidation') ? 'LIQUIDATE' : 'AUTO CLOSE'} ${pos.side} ${posLev}x] ${pos.symbol} @ $${currentPrice} | PnL: ${pnlUsdt >= 0 ? '+' : ''}$${pnlUsdt.toFixed(2)} (${pnlPercent.toFixed(2)}%) | เหตุผล: ${exitReason}`);
+          addServerLog(`🛑 [SERVER 24/7 ${exitReason.includes('Liquidation') ? 'LIQUIDATE' : 'AUTO CLOSE'} ${pos.side} ${posLev}x] ${pos.symbol} @ ฿${currentPrice} | PnL: ${pnlUsdt >= 0 ? '+' : ''}฿${pnlUsdt.toFixed(2)} (${pnlPercent.toFixed(2)}%) | เหตุผล: ${exitReason}`);
           saveServerState();
         } else {
           pos.currentPnlUsdt = Number(pnlUsdt.toFixed(2));
@@ -389,7 +429,7 @@ async function runServerBotCycle() {
           };
 
           serverState.tradeHistory.unshift(trade);
-          addServerLog(`🚀 [SERVER 24/7 OPEN ${targetSide} ${lev}x] ${sym} @ $${currentPrice} | ทุน $${tradeUsdt.toFixed(2)} USDT (มูลค่าสัญญา $${notionalValue.toFixed(2)}) | สัญญาณ ${latestCandle.colorNameTh}`);
+          addServerLog(`🚀 [SERVER 24/7 OPEN ${targetSide} ${lev}x] ${sym} @ ฿${currentPrice} | ทุน ฿${tradeUsdt.toFixed(2)} THB (มูลค่าสัญญา ฿${notionalValue.toFixed(2)}) | สัญญาณ ${latestCandle.colorNameTh}`);
           saveServerState();
         }
       }
@@ -618,21 +658,17 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// ==================== BINANCE PROXY ENDPOINTS ====================
+// ==================== BITKUB PROXY ENDPOINTS ====================
 
-app.get('/api/binance/klines', async (req, res) => {
+app.get('/api/bitkub/klines', async (req, res) => {
   try {
-    const rawSymbol = (req.query.symbol as string) || 'BTCUSDT';
-    const interval = String(req.query.interval || '1h');
-    const limit = Math.min(Math.max(1, parseInt(String(req.query.limit || '300'), 10) || 300), 1000);
-
-    const symbol = sanitizeSymbol(rawSymbol);
-    if (!symbol) return res.status(400).json({ error: 'Invalid symbol format' });
-    if (!VALID_INTERVALS.includes(interval)) return res.status(400).json({ error: 'Invalid interval' });
-
-    const url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`;
+    const symbol = (req.query.symbol as string) || 'BTC_THB';
+    const resolution = String(req.query.resolution || '1D');
+    const from = parseInt(String(req.query.from || '0'), 10);
+    const to = parseInt(String(req.query.to || '0'), 10);
+    const url = `https://api.bitkub.com/tradingview/history?symbol=${symbol}&resolution=${resolution}&from=${from}&to=${to}`;
     const response = await fetch(url);
-    if (!response.ok) return res.status(response.status).json({ error: 'Binance API request failed' });
+    if (!response.ok) return res.status(response.status).json({ error: 'Bitkub API request failed' });
     const data = await response.json();
     return res.json(data);
   } catch (error: any) {
@@ -640,15 +676,9 @@ app.get('/api/binance/klines', async (req, res) => {
   }
 });
 
-app.get('/api/binance/ticker24h', async (req, res) => {
+app.get('/api/bitkub/ticker', async (req, res) => {
   try {
-    const rawSymbol = req.query.symbol as string | undefined;
-    const symbol = rawSymbol ? sanitizeSymbol(rawSymbol) : null;
-    if (rawSymbol && !symbol) return res.status(400).json({ error: 'Invalid symbol format' });
-
-    const url = symbol
-      ? `https://api.binance.com/api/v3/ticker/24hr?symbol=${symbol}`
-      : `https://api.binance.com/api/v3/ticker/24hr`;
+    const url = 'https://api.bitkub.com/api/market/ticker';
     const response = await fetch(url);
     if (!response.ok) return res.status(response.status).json({ error: 'Ticker request failed' });
     const data = await response.json();
@@ -658,14 +688,12 @@ app.get('/api/binance/ticker24h', async (req, res) => {
   }
 });
 
-app.get('/api/binance/depth', async (req, res) => {
+app.get('/api/bitkub/depth', async (req, res) => {
   try {
-    const rawSymbol = (req.query.symbol as string) || 'BTCUSDT';
+    const rawSymbol = (req.query.symbol as string) || 'BTC_THB';
     const limit = Math.min(Math.max(1, parseInt(String(req.query.limit || '20'), 10) || 20), 5000);
-    const symbol = sanitizeSymbol(rawSymbol);
-    if (!symbol) return res.status(400).json({ error: 'Invalid symbol format' });
-
-    const url = `https://api.binance.com/api/v3/depth?symbol=${symbol}&limit=${limit}`;
+    const bitkubSym = toBitkubSymbol(rawSymbol);
+    const url = `https://api.bitkub.com/api/market/depth?sym=${bitkubSym}&lmt=${limit}`;
     const response = await fetch(url);
     if (!response.ok) return res.status(response.status).json({ error: 'Depth request failed' });
     const data = await response.json();
@@ -675,88 +703,38 @@ app.get('/api/binance/depth', async (req, res) => {
   }
 });
 
-app.get('/api/binance/exchangeInfo', async (req, res) => {
+app.post('/api/bitkub/balances', async (req, res) => {
   try {
-    const rawSymbol = req.query.symbol as string | undefined;
-    const isTestnet = req.query.isTestnet === 'true';
-    const symbol = rawSymbol ? sanitizeSymbol(rawSymbol) : null;
-    if (rawSymbol && !symbol) return res.status(400).json({ error: 'Invalid symbol format' });
-
-    const baseUrl = isTestnet
-      ? 'https://testnet.binance.vision/api/v3'
-      : 'https://api.binance.com/api/v3';
-
-    const url = symbol ? `${baseUrl}/exchangeInfo?symbol=${symbol}` : `${baseUrl}/exchangeInfo`;
-    const response = await fetch(url);
-    if (!response.ok) return res.status(response.status).json({ error: 'ExchangeInfo request failed' });
-    const data = await response.json();
-    return res.json(data);
-  } catch (error: any) {
-    return res.status(500).json({ error: sanitizeErrorMessage(error) });
-  }
-});
-
-// Time sync helper with Binance server
-const binanceTimeOffsets: Record<string, number> = {};
-const lastTimeSync: Record<string, number> = {};
-
-async function getBinanceTimestamp(baseUrl: string): Promise<{ timestamp: number; recvWindow: number }> {
-  const now = Date.now();
-  const lastSync = lastTimeSync[baseUrl] || 0;
-
-  if (now - lastSync > 60 * 1000) {
-    try {
-      const start = Date.now();
-      const res = await fetch(`${baseUrl}/time`);
-      if (res.ok) {
-        const data = (await res.json()) as { serverTime: number };
-        const end = Date.now();
-        const latency = Math.floor((end - start) / 2);
-        binanceTimeOffsets[baseUrl] = data.serverTime + latency - end;
-        lastTimeSync[baseUrl] = end;
-      }
-    } catch (e) {
-      console.warn('Failed to sync time with Binance:', e);
-    }
-  }
-
-  const offset = binanceTimeOffsets[baseUrl] || 0;
-  const timestamp = now + offset - 1000;
-  return { timestamp, recvWindow: 10000 };
-}
-
-app.post('/api/binance/account', async (req, res) => {
-  try {
-    const { apiKey, apiSecret, isTestnet } = req.body;
+    const { apiKey, apiSecret } = req.body;
     if (!apiKey || !apiSecret) {
       return res.status(400).json({ error: 'Invalid API credentials' });
     }
-
-    const baseUrl = isTestnet
-      ? 'https://testnet.binance.vision/api/v3'
-      : 'https://api.binance.com/api/v3';
-
-    const { timestamp, recvWindow } = await getBinanceTimestamp(baseUrl);
-    const queryString = `recvWindow=${recvWindow}&timestamp=${timestamp}`;
-    const signedQuery = buildBinanceSignedQuery(queryString, apiSecret);
-
-    const response = await fetch(`${baseUrl}/account?${signedQuery}`, {
-      headers: { 'X-MBX-APIKEY': apiKey },
+    const timestamp = await getBitkubTimestamp();
+    const path = '/api/v4/wallet/balances';
+    const signature = buildBitkubSignature(timestamp, 'GET', path, '', apiSecret);
+    const response = await fetch(`https://api.bitkub.com${path}`, {
+      headers: {
+        'Accept': 'application/json',
+        'X-BTK-APIKEY': apiKey,
+        'X-BTK-TIMESTAMP': String(timestamp),
+        'X-BTK-SIGN': signature,
+      },
     });
-
     const data = await response.json();
-    if (!response.ok) {
-      return res.status(response.status).json({ error: data.msg || 'Binance Account API error' });
+    if (!response.ok || data.error !== 0) {
+      return res.status(response.status).json({ error: data.error || 'Bitkub Wallet API error' });
     }
 
-    const balances = (data.balances || []).filter(
-      (b: any) => parseFloat(b.free) > 0 || parseFloat(b.locked) > 0
-    );
+    const balances = Object.entries(data.result || {}).map(([asset, val]: [string, any]) => ({
+      asset,
+      free: String(val.available),
+      locked: String(val.reserved),
+    }));
 
     return res.json({
       success: true,
-      canTrade: data.canTrade,
-      accountType: data.accountType,
+      canTrade: true,
+      accountType: 'SPOT',
       balances,
     });
   } catch (error: any) {
@@ -764,211 +742,63 @@ app.post('/api/binance/account', async (req, res) => {
   }
 });
 
-app.post('/api/binance/order', orderLimiter, async (req, res) => {
+app.post('/api/bitkub/order', orderLimiter, async (req, res) => {
   try {
-    const { apiKey, apiSecret, isTestnet, symbol: rawSymbol, side: rawSide, quantity, price, orderType: rawOrderType = 'MARKET' } = req.body;
-
+    const { apiKey, apiSecret, symbol: rawSymbol, side: rawSide, quantity, price, orderType = 'MARKET' } = req.body;
     if (!apiKey || !apiSecret) {
       return res.status(400).json({ error: 'Invalid API credentials' });
     }
-
-    const symbol = sanitizeSymbol(rawSymbol);
-    if (!symbol) return res.status(400).json({ error: 'Invalid symbol format' });
-
+    const symbol = toBitkubSymbol(rawSymbol);
     const side = String(rawSide).toUpperCase();
-    if (!VALID_SIDE_VALUES.includes(side)) return res.status(400).json({ error: 'Invalid side' });
-
-    const orderType = String(rawOrderType).toUpperCase();
-    if (!VALID_ORDER_TYPES.includes(orderType)) return res.status(400).json({ error: 'Invalid order type' });
-
+    const isBuy = side === 'BUY';
+    const path = isBuy ? '/api/v3/market/place-bid' : '/api/v3/market/place-ask';
+    
     const qty = parseFloat(quantity);
-    if (isNaN(qty) || qty <= 0) return res.status(400).json({ error: 'Invalid quantity' });
-
-    const baseUrl = isTestnet
-      ? 'https://testnet.binance.vision/api/v3'
-      : 'https://api.binance.com/api/v3';
-
-    const { timestamp, recvWindow } = await getBinanceTimestamp(baseUrl);
-    let queryParts = [
-      `symbol=${symbol}`,
-      `side=${side}`,
-      `type=${orderType}`,
-      `quantity=${qty}`,
-      `recvWindow=${recvWindow}`,
-      `timestamp=${timestamp}`,
-    ];
-
-    if (orderType === 'LIMIT' && price) {
-      queryParts.push(`price=${parseFloat(price)}`, `timeInForce=GTC`);
-    }
-
-    const queryString = queryParts.join('&');
-    const signedQuery = buildBinanceSignedQuery(queryString, apiSecret);
-
-    const response = await fetch(`${baseUrl}/order?${signedQuery}`, {
+    const rate = orderType === 'MARKET' ? 0 : parseFloat(price);
+    
+    const bodyObj = {
+      sym: symbol,
+      amt: qty,
+      rat: rate,
+      typ: orderType.toLowerCase(),
+    };
+    const bodyString = JSON.stringify(bodyObj);
+    const timestamp = await getBitkubTimestamp();
+    const signature = buildBitkubSignature(timestamp, 'POST', path, bodyString, apiSecret);
+    
+    const response = await fetch(`https://api.bitkub.com${path}`, {
       method: 'POST',
-      headers: { 'X-MBX-APIKEY': apiKey },
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'X-BTK-APIKEY': apiKey,
+        'X-BTK-TIMESTAMP': String(timestamp),
+        'X-BTK-SIGN': signature,
+      },
+      body: bodyString,
     });
-
     const data = await response.json();
-    if (!response.ok) {
-      return res.status(response.status).json({ error: data.msg || 'Binance order rejected' });
+    if (!response.ok || data.error !== 0) {
+      return res.status(response.status).json({ error: data.error || 'Bitkub order rejected' });
     }
-
-    return res.json({ success: true, order: data });
+    return res.json({ success: true, order: data.result });
   } catch (error: any) {
     return res.status(500).json({ error: sanitizeErrorMessage(error) });
   }
 });
 
-// Save Encrypted API Keys to Server for 24/7 Live Automation
-app.post('/api/binance/keys', (req, res) => {
+app.post('/api/bitkub/keys', (req, res) => {
   try {
-    const { apiKey, apiSecret, isTestnet, marketType = 'SPOT', marginType = 'ISOLATED' } = req.body;
+    const { apiKey, apiSecret } = req.body;
     if (!apiKey || !apiSecret) {
       return res.status(400).json({ error: 'Missing API Key credentials' });
     }
-    serverState.liveApiKeys = { apiKey, apiSecret, isTestnet: !!isTestnet, marketType, marginType };
+    serverState.liveApiKeys = { apiKey, apiSecret, isTestnet: false };
     saveServerState();
-    addServerLog(`🔑 ซิงก์ Binance API Key ขึ้นเซิร์ฟเวอร์เรียบร้อย (${isTestnet ? 'Testnet' : 'Live'} | ${marketType})`);
+    addServerLog(`🔑 ซิงก์ Bitkub API Key ขึ้นเซิร์ฟเวอร์เรียบร้อย`);
     return res.json({ success: true });
   } catch (err: any) {
     return res.status(500).json({ error: sanitizeErrorMessage(err) });
-  }
-});
-
-// Binance Futures Account Balance Proxy Endpoint
-app.post('/api/binance/futures/account', async (req, res) => {
-  try {
-    const { apiKey, apiSecret, isTestnet } = req.body;
-    if (!apiKey || !apiSecret) {
-      return res.status(400).json({ error: 'Invalid API credentials' });
-    }
-
-    const baseUrl = isTestnet
-      ? 'https://testnet.binancefuture.com/fapi/v2'
-      : 'https://fapi.binance.com/fapi/v2';
-
-    const { timestamp, recvWindow } = await getBinanceTimestamp(baseUrl);
-    const queryString = `recvWindow=${recvWindow}&timestamp=${timestamp}`;
-    const signedQuery = buildBinanceSignedQuery(queryString, apiSecret);
-
-    const response = await fetch(`${baseUrl}/account?${signedQuery}`, {
-      headers: { 'X-MBX-APIKEY': apiKey },
-    });
-
-    const data = await response.json();
-    if (!response.ok) {
-      return res.status(response.status).json({ error: data.msg || 'Binance Futures Account API error' });
-    }
-
-    return res.json({
-      success: true,
-      canTrade: data.canTrade,
-      feeTier: data.feeTier,
-      assets: data.assets || [],
-      positions: data.positions || [],
-    });
-  } catch (error: any) {
-    return res.status(500).json({ error: sanitizeErrorMessage(error) });
-  }
-});
-
-// Binance Futures Set Leverage Proxy Endpoint
-app.post('/api/binance/futures/leverage', async (req, res) => {
-  try {
-    const { apiKey, apiSecret, isTestnet, symbol: rawSymbol, leverage } = req.body;
-    if (!apiKey || !apiSecret) {
-      return res.status(400).json({ error: 'Invalid API credentials' });
-    }
-
-    const symbol = sanitizeSymbol(rawSymbol);
-    if (!symbol) return res.status(400).json({ error: 'Invalid symbol format' });
-
-    const lev = Math.min(Math.max(1, parseInt(String(leverage || 1), 10)), 10);
-    const baseUrl = isTestnet
-      ? 'https://testnet.binancefuture.com/fapi/v1'
-      : 'https://fapi.binance.com/fapi/v1';
-
-    const { timestamp, recvWindow } = await getBinanceTimestamp(baseUrl);
-    const queryString = `symbol=${symbol}&leverage=${lev}&recvWindow=${recvWindow}&timestamp=${timestamp}`;
-    const signedQuery = buildBinanceSignedQuery(queryString, apiSecret);
-
-    const response = await fetch(`${baseUrl}/leverage?${signedQuery}`, {
-      method: 'POST',
-      headers: { 'X-MBX-APIKEY': apiKey },
-    });
-
-    const data = await response.json();
-    if (!response.ok) {
-      return res.status(response.status).json({ error: data.msg || 'Failed to set Futures leverage' });
-    }
-
-    return res.json({ success: true, leverage: data.leverage, symbol: data.symbol });
-  } catch (error: any) {
-    return res.status(500).json({ error: sanitizeErrorMessage(error) });
-  }
-});
-
-// Binance Futures Order Proxy Endpoint
-app.post('/api/binance/futures/order', orderLimiter, async (req, res) => {
-  try {
-    const { apiKey, apiSecret, isTestnet, symbol: rawSymbol, side: rawSide, quantity, price, orderType: rawOrderType = 'MARKET', reduceOnly } = req.body;
-
-    if (!apiKey || !apiSecret) {
-      return res.status(400).json({ error: 'Invalid API credentials' });
-    }
-
-    const symbol = sanitizeSymbol(rawSymbol);
-    if (!symbol) return res.status(400).json({ error: 'Invalid symbol format' });
-
-    const side = String(rawSide).toUpperCase();
-    if (!VALID_SIDE_VALUES.includes(side)) return res.status(400).json({ error: 'Invalid side' });
-
-    const orderType = String(rawOrderType).toUpperCase();
-    if (!VALID_ORDER_TYPES.includes(orderType)) return res.status(400).json({ error: 'Invalid order type' });
-
-    const qty = parseFloat(quantity);
-    if (isNaN(qty) || qty <= 0) return res.status(400).json({ error: 'Invalid quantity' });
-
-    const baseUrl = isTestnet
-      ? 'https://testnet.binancefuture.com/fapi/v1'
-      : 'https://fapi.binance.com/fapi/v1';
-
-    const { timestamp, recvWindow } = await getBinanceTimestamp(baseUrl);
-    let queryParts = [
-      `symbol=${symbol}`,
-      `side=${side}`,
-      `type=${orderType}`,
-      `quantity=${qty}`,
-      `recvWindow=${recvWindow}`,
-      `timestamp=${timestamp}`,
-    ];
-
-    if (reduceOnly) {
-      queryParts.push(`reduceOnly=true`);
-    }
-
-    if (orderType === 'LIMIT' && price) {
-      queryParts.push(`price=${parseFloat(price)}`, `timeInForce=GTC`);
-    }
-
-    const queryString = queryParts.join('&');
-    const signedQuery = buildBinanceSignedQuery(queryString, apiSecret);
-
-    const response = await fetch(`${baseUrl}/order?${signedQuery}`, {
-      method: 'POST',
-      headers: { 'X-MBX-APIKEY': apiKey },
-    });
-
-    const data = await response.json();
-    if (!response.ok) {
-      return res.status(response.status).json({ error: data.msg || 'Binance Futures order rejected' });
-    }
-
-    return res.json({ success: true, order: data });
-  } catch (error: any) {
-    return res.status(500).json({ error: sanitizeErrorMessage(error) });
   }
 });
 
@@ -992,9 +822,9 @@ app.post('/api/ai/analyze', async (req, res) => {
 
     const prompt = `คุณคือผู้เชี่ยวชาญด้าน Technical Analysis คริปโตเคอร์เรนซี และเป็นศิษย์เอกของระบบ CDC Action Zone V2/V3 (สูตรลุงโฉลก - Chaloke.org)
 วิเคราะห์เหรียญ ${symbol} บนไทม์เฟรม ${timeframe}:
-- ราคาปัจจุบัน: $${currentPrice}
+- ราคาปัจจุบัน: ฿${currentPrice}
 - สถานะ CDC Zone: ${zone}
-- EMA 12: $${emaFast} | EMA 26: $${emaSlow}
+- EMA 12: ฿${emaFast} | EMA 26: ฿${emaSlow}
 ข้อมูลแท่งเทียน:
 ${recentCandlesSummary}
 

@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
-import { ExecutedTrade, PaperPosition, BinanceTicker24h } from '../types';
+import { ExecutedTrade, PaperPosition, BitkubTicker24h } from '../types';
 import { History, Download, Trash2, ArrowUpRight, ArrowDownRight, Search, Activity, XCircle } from 'lucide-react';
-import { formatCryptoPrice, formatCryptoAmount } from '../lib/binanceApi';
+import { formatCryptoPrice, formatCryptoAmount } from '../lib/bitkubApi';
 
 interface TradeHistoryTableProps {
   trades: ExecutedTrade[];
   onClearHistory: () => void;
   activePositions?: PaperPosition[];
   onClosePosition?: (symbol: string) => void;
-  allTickers?: BinanceTicker24h[];
+  allTickers?: BitkubTicker24h[];
 }
 
 export const TradeHistoryTable: React.FC<TradeHistoryTableProps> = ({
@@ -79,7 +79,7 @@ export const TradeHistoryTable: React.FC<TradeHistoryTableProps> = ({
 
   const exportCsv = () => {
     if (trades.length === 0) return;
-    const headers = ['ID', 'Date', 'Symbol', 'Timeframe', 'Side', 'Price', 'Amount', 'USDT Value', 'PnL ($)', 'Reason', 'Mode'];
+    const headers = ['ID', 'Date', 'Symbol', 'Timeframe', 'Side', 'Price', 'Amount', 'THB Value', 'PnL (฿)', 'Reason', 'Mode'];
     const rows = trades.map((t) => [
       t.id,
       new Date(t.timestamp).toLocaleString('th-TH'),
@@ -120,7 +120,7 @@ export const TradeHistoryTable: React.FC<TradeHistoryTableProps> = ({
 
             <div className="flex flex-wrap items-center gap-3 text-xs font-mono">
               <span className="text-slate-400">
-                เงินลงทุนรวม: <strong className="text-slate-100">${totalInvested.toFixed(2)} USDT</strong>
+                เงินลงทุนรวม: <strong className="text-slate-100">฿{totalInvested.toFixed(2)} THB</strong>
               </span>
               <div
                 className={`px-3 py-1.5 rounded-xl font-extrabold flex items-center space-x-1.5 border shadow-sm ${
@@ -131,7 +131,7 @@ export const TradeHistoryTable: React.FC<TradeHistoryTableProps> = ({
               >
                 <span>กำไร/ขาดทุน Realtime ทั้งหมด:</span>
                 <span className="text-sm">
-                  {totalUnrealizedPnlUsdt >= 0 ? '+' : ''}${totalUnrealizedPnlUsdt.toFixed(2)} (
+                  {totalUnrealizedPnlUsdt >= 0 ? '+' : ''}฿{totalUnrealizedPnlUsdt.toFixed(2)} (
                   {totalUnrealizedPnlPercent >= 0 ? '+' : ''}
                   {totalUnrealizedPnlPercent.toFixed(2)}%)
                 </span>
@@ -144,11 +144,10 @@ export const TradeHistoryTable: React.FC<TradeHistoryTableProps> = ({
               <thead>
                 <tr className="bg-slate-950 text-slate-400 border-b border-slate-800">
                   <th className="p-2.5">เหรียญ</th>
-                  <th className="p-2.5">ฝั่ง & Leverage</th>
+                  <th className="p-2.5">ฝั่ง</th>
                   <th className="p-2.5">ราคาเข้า (Entry)</th>
                   <th className="p-2.5">ราคาปัจจุบัน</th>
-                  <th className="p-2.5">ทุนประกัน (Margin)</th>
-                  <th className="p-2.5">ราคาล้างพอร์ต (Liq)</th>
+                  <th className="p-2.5">เงินลงทุน (Cost)</th>
                   <th className="p-2.5">กำไร/ขาดทุน Realtime</th>
                   <th className="p-2.5 text-right">การจัดการ</th>
                 </tr>
@@ -175,14 +174,10 @@ export const TradeHistoryTable: React.FC<TradeHistoryTableProps> = ({
                         >
                           {pos.side}
                         </span>
-                        <span className="px-1.5 py-0.5 rounded font-mono text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">
-                          {lev}x
-                        </span>
                       </td>
                       <td className="p-2.5 text-slate-300">{formatCryptoPrice(pos.entryPrice)}</td>
                       <td className="p-2.5 font-bold text-white">{formatCryptoPrice(livePrice > 0 ? livePrice : pos.entryPrice)}</td>
-                      <td className="p-2.5 text-emerald-400 font-bold">${margin.toFixed(2)}</td>
-                      <td className="p-2.5 text-rose-400 font-bold">{pos.liquidationPrice ? formatCryptoPrice(pos.liquidationPrice) : '-'}</td>
+                      <td className="p-2.5 text-emerald-400 font-bold">฿{margin.toFixed(2)}</td>
                       <td className="p-2.5">
                         <div
                           className={`inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg font-extrabold border shadow-sm ${
@@ -193,7 +188,7 @@ export const TradeHistoryTable: React.FC<TradeHistoryTableProps> = ({
                         >
                           {pnlUsdt >= 0 ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
                           <span>
-                            {pnlUsdt >= 0 ? '+' : ''}${pnlUsdt.toFixed(2)} ({pnlPercent >= 0 ? '+' : ''}
+                            {pnlUsdt >= 0 ? '+' : ''}฿{pnlUsdt.toFixed(2)} ({pnlPercent >= 0 ? '+' : ''}
                             {pnlPercent.toFixed(2)}%)
                           </span>
                         </div>
@@ -290,8 +285,8 @@ export const TradeHistoryTable: React.FC<TradeHistoryTableProps> = ({
                 <th className="p-2.5">ฝั่ง</th>
                 <th className="p-2.5">ราคา</th>
                 <th className="p-2.5">จำนวน</th>
-                <th className="p-2.5">มูลค่า (USDT)</th>
-                <th className="p-2.5">PnL Realtime ($)</th>
+                <th className="p-2.5">มูลค่า (THB)</th>
+                <th className="p-2.5">PnL Realtime (฿)</th>
                 <th className="p-2.5">เหตุผล</th>
                 <th className="p-2.5">โหมด</th>
               </tr>
@@ -323,7 +318,7 @@ export const TradeHistoryTable: React.FC<TradeHistoryTableProps> = ({
                       <td className="p-2.5">{renderSideBadge(t.side, t.reason)}</td>
                       <td className="p-2.5 font-bold text-white">{formatCryptoPrice(t.price)}</td>
                       <td className="p-2.5 font-mono">{formatCryptoAmount(t.amount)}</td>
-                      <td className="p-2.5">${t.usdtValue.toFixed(2)}</td>
+                      <td className="p-2.5">฿{t.usdtValue.toFixed(2)}</td>
                       <td className="p-2.5">
                         {activePosForTrade ? (
                           <div
@@ -334,7 +329,7 @@ export const TradeHistoryTable: React.FC<TradeHistoryTableProps> = ({
                             }`}
                           >
                             <span>
-                              ⚡ {(activePosForTrade.currentPnlUsdt ?? 0) >= 0 ? '+' : ''}$
+                              ⚡ {(activePosForTrade.currentPnlUsdt ?? 0) >= 0 ? '+' : ''}฿
                               {(activePosForTrade.currentPnlUsdt ?? 0).toFixed(2)} (
                               {(activePosForTrade.currentPnlPercent ?? 0) >= 0 ? '+' : ''}
                               {(activePosForTrade.currentPnlPercent ?? 0).toFixed(2)}%)
@@ -342,7 +337,7 @@ export const TradeHistoryTable: React.FC<TradeHistoryTableProps> = ({
                           </div>
                         ) : t.pnlUsdt !== undefined ? (
                           <span className={`font-bold ${t.pnlUsdt >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                            {t.pnlUsdt >= 0 ? '+' : ''}${t.pnlUsdt.toFixed(2)}
+                            {t.pnlUsdt >= 0 ? '+' : ''}฿{t.pnlUsdt.toFixed(2)}
                           </span>
                         ) : (
                           <span className="text-slate-500">-</span>

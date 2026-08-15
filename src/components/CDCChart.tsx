@@ -16,7 +16,7 @@ import {
 import { KlineData, Timeframe, CDCZoneColor } from '../types';
 import { getStoredSymbols } from '../lib/botStore';
 import { getZoneColorHex } from '../lib/cdcIndicator';
-import { formatCryptoPrice } from '../lib/binanceApi';
+import { formatCryptoPrice } from '../lib/bitkubApi';
 import { RefreshCw, Search, ChevronDown, Activity, Info, Zap, Layers } from 'lucide-react';
 
 interface CDCChartProps {

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Timeframe, ScannerCoinResult, CDCZoneColor } from '../types';
-import { fetchBinanceKlines, fetchBinanceTicker24h, POPULAR_PAIRS, formatCryptoPrice } from '../lib/binanceApi';
+import { fetchBitkubKlines, fetchBitkubTicker24h, POPULAR_PAIRS, formatCryptoPrice } from '../lib/bitkubApi';
 import { calculateCDCActionZone, getZoneColorHex, getZoneNameTh } from '../lib/cdcIndicator';
 import { getStoredSymbols, saveStoredSymbols, getStoredPaperAccount } from '../lib/botStore';
 import {
@@ -25,30 +25,19 @@ interface MarketScannerProps {
 }
 
 const PRESET_SUGGESTIONS = [
-  'BTCUSDT',
-  'ETHUSDT',
-  'BNBUSDT',
-  'SOLUSDT',
-  'DOGEUSDT',
-  'XRPUSDT',
-  'ADAUSDT',
-  'AVAXUSDT',
-  'LINKUSDT',
-  'DOTUSDT',
-  'NEARUSDT',
-  'SUIUSDT',
-  'PEPEUSDT',
-  'SHIBUSDT',
-  'TAOUSDT',
-  'RENDERUSDT',
-  'FETUSDT',
-  'KASUSDT',
-  'INJUSDT',
-  'APTUSDT',
-  'TIAUSDT',
-  'SEIUSDT',
-  'WIFUSDT',
-  'BONKUSDT',
+  'BTC_THB',
+  'ETH_THB',
+  'BNB_THB',
+  'ADA_THB',
+  'DOGE_THB',
+  'XRP_THB',
+  'SOL_THB',
+  'DOT_THB',
+  'NEAR_THB',
+  'LINK_THB',
+  'LTC_THB',
+  'KUB_THB',
+  'USDT_THB',
 ];
 
 export const MarketScanner: React.FC<MarketScannerProps> = ({ onSelectCoin }) => {
@@ -76,13 +65,13 @@ export const MarketScanner: React.FC<MarketScannerProps> = ({ onSelectCoin }) =>
     const results: ScannerCoinResult[] = [];
 
     // Fetch 24h tickers first for price changes
-    const tickers = await fetchBinanceTicker24h();
+    const tickers = await fetchBitkubTicker24h();
     const tickerMap = new Map(tickers.map((t) => [t.symbol, t]));
 
     for (let i = 0; i < symbolsToScan.length; i++) {
       const sym = symbolsToScan[i];
       try {
-        const rawCandles = await fetchBinanceKlines(sym, timeframe, 100);
+        const rawCandles = await fetchBitkubKlines(sym, timeframe, 100);
         const cdcCandles = calculateCDCActionZone(rawCandles, 12, 26);
 
         if (cdcCandles.length > 0) {
@@ -129,33 +118,28 @@ export const MarketScanner: React.FC<MarketScannerProps> = ({ onSelectCoin }) =>
     setInputError(null);
     setSuccessMsg(null);
 
-    const raw = (symbolToAdd || newSymbolInput).trim().toUpperCase().replace(/[\/\s_-]/g, '');
+    const raw = (symbolToAdd || newSymbolInput).trim().toUpperCase().replace(/[\/\s-]/g, '_');
     if (!raw) {
-      setInputError('กรุณากรอกชื่อคู่เหรียญ (เช่น SOLUSDT)');
+      setInputError('กรุณากรอกชื่อคู่เหรียญ (เช่น BTC_THB)');
       return;
     }
-
-    // Append USDT if user only typed base asset (e.g., SOL -> SOLUSDT)
-    const formatted = raw.endsWith('USDT') || raw.endsWith('BTC') || raw.endsWith('FDUSD') || raw.endsWith('USDC')
-      ? raw
-      : `${raw}USDT`;
 
     // Validation
-    if (!/^[A-Z0-9]{4,16}$/.test(formatted)) {
-      setInputError('รูปแบบสัญลักษณ์ไม่ถูกต้อง ต้องเป็นตัวอักษรภาษาอังกฤษหรือตัวเลข (เช่น SOLUSDT)');
+    if (!/^[A-Z0-9]+_[A-Z0-9]+$/.test(raw)) {
+      setInputError('รูปแบบสัญลักษณ์ไม่ถูกต้อง (เช่น BTC_THB)');
       return;
     }
 
-    if (coinList.includes(formatted)) {
-      setInputError(`คู่เหรียญ ${formatted} มีอยู่ในรายการแล้ว`);
+    if (coinList.includes(raw)) {
+      setInputError(`คู่เหรียญ ${raw} มีอยู่ในรายการแล้ว`);
       return;
     }
 
-    const updated = [...coinList, formatted];
+    const updated = [...coinList, raw];
     setCoinList(updated);
     saveStoredSymbols(updated);
     setNewSymbolInput('');
-    setSuccessMsg(`เพิ่มเหรียญ ${formatted} เรียบร้อยแล้ว`);
+    setSuccessMsg(`เพิ่มเหรียญ ${raw} เรียบร้อยแล้ว`);
 
     setTimeout(() => setSuccessMsg(null), 3000);
 
@@ -192,7 +176,7 @@ export const MarketScanner: React.FC<MarketScannerProps> = ({ onSelectCoin }) =>
 
   // Reset to default popular pairs
   const handleResetDefault = () => {
-    if (window.confirm('คุณต้องการรีเซ็ตรายการเหรียญทั้งหมดกลับเป็นค่าเริ่มต้น (14 คู่เหรียญหลัก) หรือไม่?')) {
+    if (window.confirm('คุณต้องการรีเซ็ตรายการเหรียญทั้งหมดกลับเป็นค่าเริ่มต้น (13 คู่เหรียญหลัก) หรือไม่?')) {
       setCoinList(POPULAR_PAIRS);
       saveStoredSymbols(POPULAR_PAIRS);
       setSuccessMsg('รีเซ็ตรายการเหรียญเป็นค่าเริ่มต้นแล้ว');
@@ -224,7 +208,7 @@ export const MarketScanner: React.FC<MarketScannerProps> = ({ onSelectCoin }) =>
             </span>
           </div>
           <p className="text-xs text-slate-400 mt-0.5">
-            สแกนหาเหรียญคริปโตบน Binance ที่กำลังตัดเข้า <span className="text-blue-400 font-bold">โซนฟ้า (สัญญาณซื้อ)</span> หรือ <span className="text-emerald-400 font-bold">โซนเขียว (ขาขึ้น)</span>
+            สแกนหาเหรียญคริปโตบน Bitkub ที่กำลังตัดเข้า <span className="text-blue-400 font-bold">โซนฟ้า (สัญญาณซื้อ)</span> หรือ <span className="text-emerald-400 font-bold">โซนเขียว (ขาขึ้น)</span>
           </p>
         </div>
 
@@ -282,7 +266,7 @@ export const MarketScanner: React.FC<MarketScannerProps> = ({ onSelectCoin }) =>
             <button
               onClick={handleResetDefault}
               className="text-xs text-slate-400 hover:text-slate-200 flex items-center space-x-1 px-2.5 py-1 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-lg transition"
-              title="คืนค่ากลับเป็นคู่เหรียญหลักเริ่มต้นของ Binance"
+              title="คืนค่ากลับเป็นคู่เหรียญหลักเริ่มต้นของ Bitkub"
             >
               <RotateCcw className="w-3 h-3" />
               <span>รีเซ็ตค่าเริ่มต้น ({POPULAR_PAIRS.length} เหรียญ)</span>
@@ -301,7 +285,7 @@ export const MarketScanner: React.FC<MarketScannerProps> = ({ onSelectCoin }) =>
               <div className="relative flex-1">
                 <input
                   type="text"
-                  placeholder="พิมพ์ชื่อเหรียญ เช่น SOLUSDT, XRPUSDT, KASUSDT, PEPEUSDT..."
+                  placeholder="พิมพ์ชื่อเหรียญ เช่น BTC_THB, ETH_THB, USDT_THB..."
                   value={newSymbolInput}
                   onChange={(e) => {
                     setNewSymbolInput(e.target.value.toUpperCase());
@@ -480,7 +464,7 @@ export const MarketScanner: React.FC<MarketScannerProps> = ({ onSelectCoin }) =>
               <div className="flex items-center justify-between">
                 <div>
                   <span className="font-extrabold text-white text-base font-mono">{coin.symbol}</span>
-                  <span className="text-[10px] text-slate-500 block font-mono">Binance Spot</span>
+                  <span className="text-[10px] text-slate-500 block font-mono">Bitkub Spot</span>
                 </div>
                 <span
                   className="px-2.5 py-0.5 rounded-full text-xs font-bold text-slate-950 shadow-sm"
