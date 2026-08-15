@@ -539,11 +539,11 @@ export const CDCChart: React.FC<CDCChartProps> = ({
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}
               className="flex items-center space-x-2 bg-[#2a2e39] hover:bg-[#363c4e] text-white px-3 py-1.5 rounded font-medium transition border border-slate-700/60"
             >
-              <div className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-[9px]">
-                SET
+              <div className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-[8px]">
+                SET50
               </div>
               <span className="font-semibold text-sm">{symbol}</span>
-              <span className="text-slate-400 text-[10px]">· {timeframe.toUpperCase()} · SET</span>
+              <span className="text-slate-400 text-[10px]">· {timeframe.toUpperCase()} · SET50</span>
               <ChevronDown className="w-3.5 h-3.5 text-slate-400 ml-1" />
             </button>
 
@@ -572,7 +572,7 @@ export const CDCChart: React.FC<CDCChartProps> = ({
                       }`}
                     >
                       <span>{pair}</span>
-                      <span className="text-[10px] text-slate-500">SET</span>
+                      <span className="text-[10px] text-slate-500">SET50</span>
                     </button>
                   ))}
                 </div>

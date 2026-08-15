@@ -62,7 +62,7 @@ export const Header: React.FC<HeaderProps> = ({
                 CDC Action Zone <span className="text-emerald-400 font-extrabold">V2</span>
               </h1>
               <span className="text-xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full font-medium">
-                SET Stock Bot
+                SET50 Stock Bot
               </span>
             </div>
             <p className="text-xs text-slate-400">ระบบบอทเทรดหุ้นไทยตามสัญญาณอินดิเคเตอร์ Chaloke.org</p>

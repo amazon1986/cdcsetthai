@@ -210,7 +210,7 @@ export const MarketScanner: React.FC<MarketScannerProps> = ({ onSelectCoin }) =>
             </span>
           </div>
           <p className="text-xs text-slate-400 mt-0.5">
-            สแกนหาหุ้นบนตลาดหลักทรัพย์ไทย (SET) ที่กำลังตัดเข้า <span className="text-blue-400 font-bold">โซนฟ้า (สัญญาณซื้อ)</span> หรือ <span className="text-emerald-400 font-bold">โซนเขียว (ขาขึ้น)</span>
+            สแกนหาหุ้นบนตลาดหลักทรัพย์ไทย (SET50) ที่กำลังตัดเข้า <span className="text-blue-400 font-bold">โซนฟ้า (สัญญาณซื้อ)</span> หรือ <span className="text-emerald-400 font-bold">โซนเขียว (ขาขึ้น)</span>
           </p>
         </div>
 
@@ -466,7 +466,7 @@ export const MarketScanner: React.FC<MarketScannerProps> = ({ onSelectCoin }) =>
               <div className="flex items-center justify-between">
                 <div>
                   <span className="font-extrabold text-white text-base font-mono">{coin.symbol}</span>
-                  <span className="text-[10px] text-slate-500 block font-mono">SET Market</span>
+                  <span className="text-[10px] text-slate-500 block font-mono">SET50 Market</span>
                 </div>
                 <span
                   className="px-2.5 py-0.5 rounded-full text-xs font-bold text-slate-950 shadow-sm"
