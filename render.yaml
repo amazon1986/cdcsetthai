@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: cdc-bitkub-bot
+    name: cdcbitkub
     env: node
     plan: free
     buildCommand: npm install && npm run build
