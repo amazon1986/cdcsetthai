@@ -1,6 +1,6 @@
 {
-  "name": "CDC Action Zone Binance Trading Bot",
-  "description": "Crypto Trading Bot with CDC Action Zone V2 indicator, Binance live ticker & charts, backtesting engine, paper trading simulation, and API trading.",
+  "name": "CDC Action Zone Bitkub Trading Bot",
+  "description": "Crypto Trading Bot with CDC Action Zone V2 indicator, Bitkub live ticker & charts, backtesting engine, paper trading simulation, and API trading.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

@@ -713,14 +713,20 @@ app.post('/api/bitkub/balances', async (req, res) => {
     const path = '/api/v4/wallet/balances';
     const signature = buildBitkubSignature(timestamp, 'GET', path, '', apiSecret);
     const response = await fetch(`https://api.bitkub.com${path}`, {
+      method: 'GET',
       headers: {
         'Accept': 'application/json',
+        'Content-Type': 'application/json',
         'X-BTK-APIKEY': apiKey,
         'X-BTK-TIMESTAMP': String(timestamp),
         'X-BTK-SIGN': signature,
       },
     });
     const data = await response.json();
+    console.log('--- Bitkub Balances API Debug ---');
+    console.log('Timestamp sent:', timestamp);
+    console.log('Signature sent:', signature);
+    console.log('Response data:', data);
     if (!response.ok || data.error !== 0) {
       return res.status(response.status).json({ error: data.error || 'Bitkub Wallet API error' });
     }

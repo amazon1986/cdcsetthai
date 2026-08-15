@@ -238,7 +238,7 @@ export const TradingStats: React.FC<TradingStatsProps> = ({ trades: propTrades, 
             >
               <option value="ALL">⚙️ ทุกโหมด (All Modes)</option>
               <option value="PAPER">🟢 Paper Trade (จำลอง)</option>
-              <option value="BINANCE_LIVE">⚡ Live Trade (เงินจริง)</option>
+              <option value="BITKUB_LIVE">⚡ Live Trade (เงินจริง)</option>
             </select>
           </div>
         </div>
