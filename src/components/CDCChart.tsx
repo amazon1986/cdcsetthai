@@ -539,11 +539,11 @@ export const CDCChart: React.FC<CDCChartProps> = ({
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}
               className="flex items-center space-x-2 bg-[#2a2e39] hover:bg-[#363c4e] text-white px-3 py-1.5 rounded font-medium transition border border-slate-700/60"
             >
-              <div className="w-5 h-5 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold text-[10px]">
-                ₿
+              <div className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-[9px]">
+                SET
               </div>
-              <span className="font-semibold text-sm">{symbol.replace('_THB', ' / Thai Baht')}</span>
-              <span className="text-slate-400 text-[10px]">· {timeframe.toUpperCase()} · Bitkub</span>
+              <span className="font-semibold text-sm">{symbol}</span>
+              <span className="text-slate-400 text-[10px]">· {timeframe.toUpperCase()} · SET</span>
               <ChevronDown className="w-3.5 h-3.5 text-slate-400 ml-1" />
             </button>
 
@@ -553,7 +553,7 @@ export const CDCChart: React.FC<CDCChartProps> = ({
                   <Search className="w-3.5 h-3.5 text-slate-400 mr-2" />
                   <input
                     type="text"
-                    placeholder="ค้นหาคู่เหรียญ..."
+                    placeholder="ค้นหาหุ้น..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="bg-transparent text-xs text-white placeholder-slate-500 focus:outline-none w-full"
@@ -572,7 +572,7 @@ export const CDCChart: React.FC<CDCChartProps> = ({
                       }`}
                     >
                       <span>{pair}</span>
-                      <span className="text-[10px] text-slate-500">Bitkub</span>
+                      <span className="text-[10px] text-slate-500">SET</span>
                     </button>
                   ))}
                 </div>

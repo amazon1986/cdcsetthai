@@ -114,6 +114,20 @@ function loadServerState() {
     if (fs.existsSync(STATE_FILE)) {
       const raw = fs.readFileSync(STATE_FILE, 'utf-8');
       const parsed = JSON.parse(raw);
+      
+      let cleanSymbol = parsed.botConfig?.symbol || 'PTT';
+      if (cleanSymbol.includes('_') || cleanSymbol.includes('/') || ['BTC', 'ETH', 'USDT', 'KUB', 'ADA'].includes(cleanSymbol.toUpperCase())) {
+        cleanSymbol = 'PTT';
+      }
+      if (parsed.botConfig) {
+        parsed.botConfig.symbol = cleanSymbol;
+      }
+
+      if (parsed.paperAccount && (parsed.paperAccount.usdtBalance === 1000 || parsed.paperAccount.usdtBalance === 30000)) {
+        parsed.paperAccount.usdtBalance = 100000;
+        parsed.paperAccount.initialUsdtBalance = 100000;
+      }
+
       serverState = {
         ...DEFAULT_SERVER_STATE,
         ...parsed,

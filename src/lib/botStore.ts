@@ -53,9 +53,16 @@ export function getStoredBotConfig(): BotConfig {
     if (!raw) return DEFAULT_BOT_CONFIG;
     const parsed = JSON.parse(raw);
     const lev = Math.min(Math.max(1, parseInt(parsed.leverage || 1, 10)), 10);
+    
+    let cleanSymbol = parsed.symbol || 'PTT';
+    if (cleanSymbol.includes('_') || cleanSymbol.includes('/') || ['BTC', 'ETH', 'USDT', 'KUB', 'ADA', 'XRP'].includes(cleanSymbol.toUpperCase())) {
+      cleanSymbol = 'PTT';
+    }
+
     return {
       ...DEFAULT_BOT_CONFIG,
       ...parsed,
+      symbol: cleanSymbol,
       leverage: isNaN(lev) ? 1 : lev,
       timeframe: parsed.timeframe || '1d',
       maxOpenPositions: parsed.maxOpenPositions && parsed.maxOpenPositions > 0 ? parsed.maxOpenPositions : 5,
@@ -75,7 +82,13 @@ export function saveBotConfig(config: BotConfig): void {
 export function getStoredPaperAccount(): PaperAccount {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.PAPER_ACCOUNT);
-    return raw ? JSON.parse(raw) : DEFAULT_PAPER_ACCOUNT;
+    if (!raw) return DEFAULT_PAPER_ACCOUNT;
+    const parsed = JSON.parse(raw);
+    if (parsed.usdtBalance === 1000 || parsed.usdtBalance === 30000) {
+      parsed.usdtBalance = 100000;
+      parsed.initialUsdtBalance = 100000;
+    }
+    return parsed;
   } catch {
     return DEFAULT_PAPER_ACCOUNT;
   }

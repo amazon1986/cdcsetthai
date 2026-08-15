@@ -23,7 +23,7 @@ export function toFriendlySymbol(bitkubSymbol: string): string {
  * Fetches historical Kline / Candlestick data from Bitkub TradingView history.
  */
 export async function fetchBitkubKlines(
-  symbol = 'BTC_THB',
+  symbol = 'PTT',
   interval: Timeframe = '1d',
   limit = 300
 ): Promise<KlineData[]> {
@@ -138,7 +138,7 @@ export async function fetchBitkubTicker24h(symbol?: string): Promise<BitkubTicke
 /**
  * Fetches orderbook depth (bids and asks) for a symbol.
  */
-export async function fetchOrderBook(symbol = 'BTC_THB', limit = 15): Promise<OrderBookData> {
+export async function fetchOrderBook(symbol = 'PTT', limit = 15): Promise<OrderBookData> {
   try {
     const res = await fetch(`/api/bitkub/depth?symbol=${symbol}&limit=${limit}`);
 
