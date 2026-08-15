@@ -147,7 +147,7 @@ export const BotControlPanel: React.FC<BotControlPanelProps> = ({
                   )}
                 </div>
                 <p className="text-[11px] text-slate-400 font-normal leading-normal">
-                  สแกนเหรียญทั้งหมดใน Binance และส่งคำสั่งเข้าซื้อทุกเหรียญที่เกิดสัญญาณ CDC
+                  สแกนเหรียญทั้งหมดใน Bitkub และส่งคำสั่งเข้าซื้อทุกเหรียญที่เกิดสัญญาณ CDC
                 </p>
               </button>
             </div>

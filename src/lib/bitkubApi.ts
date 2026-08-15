@@ -77,16 +77,8 @@ export async function fetchBitkubKlines(
   const to = Math.floor(Date.now() / 1000);
   const from = to - (limit * timeStepSeconds);
 
-  // Direct fetch URL
-  const url = `${BITKUB_PUBLIC_BASE}/tradingview/history?symbol=${friendlySymbol}&resolution=${resolution}&from=${from}&to=${to}`;
-
   try {
-    let response = await fetch(url);
-    if (!response.ok) {
-      // Try backend proxy
-      response = await fetch(`/api/bitkub/klines?symbol=${friendlySymbol}&resolution=${resolution}&from=${from}&to=${to}`);
-    }
-
+    const response = await fetch(`/api/bitkub/klines?symbol=${friendlySymbol}&resolution=${resolution}&from=${from}&to=${to}`);
     if (!response.ok) {
       throw new Error(`Failed to fetch Bitkub Klines: ${response.statusText}`);
     }
@@ -97,8 +89,6 @@ export async function fetchBitkubKlines(
       return [];
     }
 
-    // Map TradingView history array format to KlineData
-    // { t: time, o: open, h: high, l: low, c: close, v: volume }
     return data.t.map((t: number, i: number) => ({
       time: t * 1000, // convert to ms for client consumption
       open: parseFloat(data.o[i]),
@@ -108,25 +98,7 @@ export async function fetchBitkubKlines(
       volume: parseFloat(data.v[i]),
     }));
   } catch (error) {
-    console.warn('Direct Bitkub fetch failed, attempting server proxy...', error);
-    try {
-      const proxyRes = await fetch(`/api/bitkub/klines?symbol=${friendlySymbol}&resolution=${resolution}&from=${from}&to=${to}`);
-      if (proxyRes.ok) {
-        const proxyData = await proxyRes.json();
-        if (proxyData && Array.isArray(proxyData.t)) {
-          return proxyData.t.map((t: number, i: number) => ({
-            time: t * 1000,
-            open: parseFloat(proxyData.o[i]),
-            high: parseFloat(proxyData.h[i]),
-            low: parseFloat(proxyData.l[i]),
-            close: parseFloat(proxyData.c[i]),
-            volume: parseFloat(proxyData.v[i]),
-          }));
-        }
-      }
-    } catch (proxyErr) {
-      console.error('Proxy fetch also failed:', proxyErr);
-    }
+    console.error('Error fetching Bitkub Klines:', error);
     return [];
   }
 }
@@ -137,12 +109,7 @@ export async function fetchBitkubKlines(
 export async function fetchBitkubTicker24h(symbol?: string): Promise<BitkubTicker24h[]> {
   try {
     const searchSymbol = symbol ? toBitkubSymbol(symbol) : '';
-    const url = `${BITKUB_PUBLIC_BASE}/api/market/ticker`;
-
-    let response = await fetch(url);
-    if (!response.ok) {
-      response = await fetch(`/api/bitkub/ticker`);
-    }
+    const response = await fetch(`/api/bitkub/ticker`);
 
     if (!response.ok) throw new Error('Ticker fetch failed');
 
@@ -179,12 +146,8 @@ export async function fetchBitkubTicker24h(symbol?: string): Promise<BitkubTicke
  * Fetches orderbook depth (bids and asks) for a symbol.
  */
 export async function fetchOrderBook(symbol = 'BTC_THB', limit = 15): Promise<OrderBookData> {
-  const bitkubSym = toBitkubSymbol(symbol);
   try {
-    let res = await fetch(`${BITKUB_PUBLIC_BASE}/api/market/depth?sym=${bitkubSym}&lmt=${limit}`);
-    if (!res.ok) {
-      res = await fetch(`/api/bitkub/depth?symbol=${symbol}&limit=${limit}`);
-    }
+    const res = await fetch(`/api/bitkub/depth?symbol=${symbol}&limit=${limit}`);
 
     if (!res.ok) throw new Error('Orderbook fetch failed');
 

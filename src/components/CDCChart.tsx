@@ -542,8 +542,8 @@ export const CDCChart: React.FC<CDCChartProps> = ({
               <div className="w-5 h-5 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold text-[10px]">
                 ₿
               </div>
-              <span className="font-semibold text-sm">{symbol.replace('USDT', ' / TetherUS')}</span>
-              <span className="text-slate-400 text-[10px]">· {timeframe.toUpperCase()} · Binance</span>
+              <span className="font-semibold text-sm">{symbol.replace('_THB', ' / Thai Baht')}</span>
+              <span className="text-slate-400 text-[10px]">· {timeframe.toUpperCase()} · Bitkub</span>
               <ChevronDown className="w-3.5 h-3.5 text-slate-400 ml-1" />
             </button>
 
@@ -572,7 +572,7 @@ export const CDCChart: React.FC<CDCChartProps> = ({
                       }`}
                     >
                       <span>{pair}</span>
-                      <span className="text-[10px] text-slate-500">Binance</span>
+                      <span className="text-[10px] text-slate-500">Bitkub</span>
                     </button>
                   ))}
                 </div>
@@ -782,7 +782,7 @@ export const CDCChart: React.FC<CDCChartProps> = ({
           <div className="absolute inset-0 bg-[#131722]/70 backdrop-blur-xs flex items-center justify-center z-40">
             <div className="flex items-center space-x-2 bg-[#1e222d] border border-[#2a2e39] px-4 py-2 rounded-lg text-amber-400 text-xs font-semibold shadow-xl">
               <RefreshCw className="w-4 h-4 animate-spin" />
-              <span>กำลังดึงข้อมูลกราฟ Binance...</span>
+              <span>กำลังดึงข้อมูลกราฟ Bitkub...</span>
             </div>
           </div>
         )}
