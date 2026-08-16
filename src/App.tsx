@@ -288,7 +288,7 @@ export default function App() {
       : calculateOrderSize(botConfig, paperAccount);
 
     if (tradeUsdt < 10) {
-      showToast('ยอดเงินคงเหลือไม่พอสำหรับซื้อเหรียญ (ขั้นต่ำ ฿10)', 'info');
+      showToast('ยอดเงินคงเหลือไม่พอสำหรับซื้อหุ้น (ขั้นต่ำ ฿10)', 'info');
       return;
     }
 
@@ -300,7 +300,7 @@ export default function App() {
     });
 
     if (res.success) {
-      showToast(`ซื้อเหรียญ ${botConfig.symbol} สำเร็จ`, 'buy');
+      showToast(`ซื้อหุ้น ${botConfig.symbol} สำเร็จ`, 'buy');
       const data = await fetchBotServerState();
       if (data) {
         setPaperAccount(data.paperAccount);
@@ -308,7 +308,7 @@ export default function App() {
         setBotLogs(data.botLogs);
       }
     } else {
-      showToast(res.error || 'เกิดข้อผิดพลาดในการซื้อเหรียญ', 'sell');
+      showToast(res.error || 'เกิดข้อผิดพลาดในการซื้อหุ้น', 'sell');
     }
   };
 
@@ -458,7 +458,7 @@ export default function App() {
             onSelectCoin={(selectedSymbol) => {
               handleSaveBotConfig({ ...botConfig, symbol: selectedSymbol });
               setActiveTab('chart');
-              showToast(`เลือกเหรียญ ${selectedSymbol} ขึ้นชาร์ตและบอทเรียบร้อย`, 'info');
+              showToast(`เลือกหุ้น ${selectedSymbol} ขึ้นชาร์ตและบอทเรียบร้อย`, 'info');
             }}
           />
         )}

@@ -268,7 +268,7 @@ export const TradeHistoryTable: React.FC<TradeHistoryTableProps> = ({
 
           <input
             type="text"
-            placeholder="ค้นหาชื่อเหรียญ..."
+            placeholder="ค้นหาชื่อหุ้น..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500 w-44"
@@ -281,7 +281,7 @@ export const TradeHistoryTable: React.FC<TradeHistoryTableProps> = ({
             <thead>
               <tr className="bg-slate-950 text-slate-400 border-b border-slate-800">
                 <th className="p-2.5">เวลา</th>
-                <th className="p-2.5">เหรียญ</th>
+                <th className="p-2.5">ชื่อหุ้น</th>
                 <th className="p-2.5">ฝั่ง</th>
                 <th className="p-2.5">ราคา</th>
                 <th className="p-2.5">จำนวน</th>

@@ -250,7 +250,7 @@ export const CoffeeDonation: React.FC = () => {
               <span>ข้อความจากผู้พัฒนา (Developer's Note)</span>
             </div>
             <p className="text-xs text-slate-300 leading-relaxed">
-              ขอขอบคุณทุกท่านที่ให้ความสนใจและใช้งาน <strong>CDC Action Zone Bitkub Trading Bot</strong> หวังเป็นอย่างยิ่งว่าเครื่องมือนี้จะมีประโยชน์ต่อการเทรดของท่าน ทุกกำลังใจและทุกการสนับสนุนของท่านจะนำไปพัฒนาอัปเกรดระบบให้มีความแม่นยำ เสถียร และปลอดภัยยิ่งขึ้นต่อไปครับ 🙏
+              ขอขอบคุณทุกท่านที่ให้ความสนใจและใช้งาน <strong>CDC Action Zone SET Thai Stock Trading Bot</strong> หวังเป็นอย่างยิ่งว่าเครื่องมือนี้จะมีประโยชน์ต่อการเทรดของท่าน ทุกกำลังใจและทุกการสนับสนุนของท่านจะนำไปพัฒนาอัปเกรดระบบให้มีความแม่นยำ เสถียร และปลอดภัยยิ่งขึ้นต่อไปครับ 🙏
             </p>
             <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-500 font-medium">
               <span>พัฒนาด้วย ❤️ โดย คุณสุรเดช ชูสวัสดิ์</span>

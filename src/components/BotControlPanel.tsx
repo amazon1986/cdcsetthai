@@ -446,7 +446,7 @@ export const BotControlPanel: React.FC<BotControlPanelProps> = ({
 
                 {/* Max Concurrent Positions */}
                 <div>
-                  <label className="text-slate-300 font-medium block mb-1">จำนวนเหรียญถือสูงสุด (Slots)</label>
+                  <label className="text-slate-300 font-medium block mb-1">จำนวนหุ้นถือสูงสุด (Slots)</label>
                   <input
                     type="number"
                     min="1"

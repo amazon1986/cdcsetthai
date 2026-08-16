@@ -782,7 +782,7 @@ export const CDCChart: React.FC<CDCChartProps> = ({
           <div className="absolute inset-0 bg-[#131722]/70 backdrop-blur-xs flex items-center justify-center z-40">
             <div className="flex items-center space-x-2 bg-[#1e222d] border border-[#2a2e39] px-4 py-2 rounded-lg text-amber-400 text-xs font-semibold shadow-xl">
               <RefreshCw className="w-4 h-4 animate-spin" />
-              <span>กำลังดึงข้อมูลกราฟ Bitkub...</span>
+              <span>กำลังดึงข้อมูลกราฟหุ้น...</span>
             </div>
           </div>
         )}
