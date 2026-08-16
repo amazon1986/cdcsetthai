@@ -28,8 +28,8 @@
     "isActive": false,
     "telegramConfig": {
       "botToken": "8699262679:AAE_m9WPAiAqrEG0U1IACEoy2NjEUIveoGU",
-      "chatId": "",
-      "isEnabled": false
+      "chatId": "8035615011",
+      "isEnabled": true
     }
   },
   "paperAccount": {
@@ -43,6 +43,7 @@
   },
   "tradeHistory": [],
   "botLogs": [
+    "[04:05:29] ⚙️ อัปเดตการตั้งค่าบอท: AOT | TF: 1d | สถานะ: หยุด 🔴",
     "[04:01:54] ⚙️ อัปเดตการตั้งค่าบอท: AOT | TF: 1d | สถานะ: หยุด 🔴",
     "[03:37:02] ⚙️ อัปเดตการตั้งค่าบอท: AOT | TF: 1d | สถานะ: หยุด 🔴",
     "[03:35:52] ⚙️ อัปเดตการตั้งค่าบอท: AOT | TF: 1d | สถานะ: เปิดทำงาน 🟢",

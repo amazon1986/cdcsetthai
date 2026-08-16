@@ -139,22 +139,69 @@ export async function saveBrokerKeysToServer(keys: SettradeApiKeys): Promise<boo
 }
 
 /**
- * Sends a test notification to Telegram via backend
+ * Sends a test notification to Telegram via backend with client fallback
  */
 export async function sendTelegramTestAlert(params: {
   botToken: string;
   chatId: string;
 }): Promise<{ success: boolean; error?: string }> {
+  const { botToken, chatId } = params;
+  if (!botToken || !chatId) {
+    return { success: false, error: 'กรุณาระบุ Bot Token และ Chat ID' };
+  }
+
+  const testMsg =
+    `🔔 <b>ทดสอบการเชื่อมต่อ Telegram สำเร็จ!</b>\n\n` +
+    `🚀 ระบบ <b>CDC Action Zone V2 SET Thai Stock Bot</b> เชื่อมต่อระบบแจ้งเตือนสำเร็จ พร้อมส่งสัญญาณเทรดและสรุปผลกำไร-ขาดทุนให้คุณแบบ Realtime 24/7 ครับ 📈✨`;
+
+  // 1. Try sending through backend endpoint first
   try {
     const res = await fetch('/api/telegram/test', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(params),
     });
-    const data = await res.json();
-    return { success: res.ok && data.success, error: data.error };
-  } catch (err: any) {
-    return { success: false, error: err.message || 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้' };
+
+    const contentType = res.headers.get('content-type') || '';
+    if (contentType.includes('application/json')) {
+      const data = await res.json();
+      if (res.ok && data.success) {
+        return { success: true };
+      }
+      if (data.error) {
+        return { success: false, error: data.error };
+      }
+    }
+  } catch (backendErr) {
+    console.warn('Backend Telegram test endpoint unavailable, trying direct Telegram API fallback...', backendErr);
+  }
+
+  // 2. Direct Telegram API Fallback (client-side fallback for Vite dev mode / standalone)
+  try {
+    const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text: testMsg,
+        parse_mode: 'HTML',
+      }),
+    });
+
+    const data = await response.json();
+    if (data.ok) {
+      return { success: true };
+    }
+    return {
+      success: false,
+      error: data.description || 'เกิดข้อผิดพลาดจาก Telegram API (กรุณาเช็ค Bot Token หรือ Chat ID)',
+    };
+  } catch (directErr: any) {
+    return {
+      success: false,
+      error: directErr.message || 'ไม่สามารถส่งข้อความได้ กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ต',
+    };
   }
 }
 
