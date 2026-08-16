@@ -137,3 +137,24 @@ export async function saveBrokerKeysToServer(keys: SettradeApiKeys): Promise<boo
     return false;
   }
 }
+
+/**
+ * Sends a test notification to Telegram via backend
+ */
+export async function sendTelegramTestAlert(params: {
+  botToken: string;
+  chatId: string;
+}): Promise<{ success: boolean; error?: string }> {
+  try {
+    const res = await fetch('/api/telegram/test', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params),
+    });
+    const data = await res.json();
+    return { success: res.ok && data.success, error: data.error };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้' };
+  }
+}
+

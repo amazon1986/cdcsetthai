@@ -175,6 +175,37 @@ function addServerLog(msg: string) {
   saveServerState();
 }
 
+/**
+ * Sends real-time notification alert via Telegram Bot API
+ */
+async function sendTelegramAlert(messageText: string): Promise<boolean> {
+  try {
+    const config = serverState.botConfig?.telegramConfig;
+    const token = config?.botToken || process.env.TELEGRAM_BOT_TOKEN;
+    const chatId = config?.chatId || process.env.TELEGRAM_CHAT_ID;
+    const isEnabled = config?.isEnabled !== undefined ? config.isEnabled : true;
+
+    if (!token || !chatId || !isEnabled) return false;
+
+    const url = `https://api.telegram.org/bot${token}/sendMessage`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text: messageText,
+        parse_mode: 'HTML',
+        disable_web_page_preview: true,
+      }),
+    });
+    const data = await res.json();
+    return !!data.ok;
+  } catch (err) {
+    console.warn('Telegram alert notification failed:', err);
+    return false;
+  }
+}
+
 // Load state immediately on startup
 loadServerState();
 
@@ -400,6 +431,17 @@ async function runServerBotCycle() {
             `🛑 [SERVER 24/7 ${exitReason.includes('Liquidation') ? 'LIQUIDATE' : 'AUTO CLOSE'} ${pos.side}] ${pos.symbol} @ ฿${currentPrice} | PnL: ${pnlUsdt >= 0 ? '+' : ''}฿${pnlUsdt.toFixed(2)} (${pnlPercent.toFixed(2)}%) | เหตุผล: ${exitReason}`
           );
           saveServerState();
+
+          const isWin = pnlUsdt >= 0;
+          sendTelegramAlert(
+            `${isWin ? '🎯' : '🛑'} <b>[CDC Stock Bot] ปิดสถานะหุ้น (${pos.side})</b>\n\n` +
+            `📈 <b>หุ้น:</b> <code>${pos.symbol}</code>\n` +
+            `💰 <b>ราคาปิด:</b> ฿${currentPrice.toFixed(2)}\n` +
+            `💵 <b>ผลตอบแทน:</b> ${isWin ? '+' : ''}฿${pnlUsdt.toFixed(2)} (${pnlPercent >= 0 ? '+' : ''}${pnlPercent.toFixed(2)}%)\n` +
+            `📝 <b>เหตุผล:</b> ${exitReason}\n` +
+            `⏱️ <b>ไทม์เฟรม:</b> ${config.timeframe}\n` +
+            `📅 <b>เวลา:</b> ${new Date().toLocaleTimeString('th-TH')}`
+          );
         } else {
           pos.currentPnlUsdt = Number(pnlUsdt.toFixed(2));
           pos.currentPnlPercent = Number(pnlPercent.toFixed(2));
@@ -480,6 +522,17 @@ async function runServerBotCycle() {
             `🚀 [SERVER 24/7 OPEN ${targetSide}] ${sym} @ ฿${currentPrice} | ทุน ฿${tradeUsdt.toFixed(2)} บาท (${sharesAmount.toLocaleString()} หุ้น) | สัญญาณ ${latestCandle.colorNameTh}`
           );
           saveServerState();
+
+          sendTelegramAlert(
+            `🚀 <b>[CDC Action Zone V2] เข้าซื้อหุ้น (${targetSide})</b>\n\n` +
+            `📈 <b>หุ้น:</b> <code>${sym}</code>\n` +
+            `💰 <b>ราคาเข้า:</b> ฿${currentPrice.toFixed(2)}\n` +
+            `📊 <b>จำนวน:</b> ${sharesAmount.toLocaleString()} หุ้น\n` +
+            `💵 <b>เงินลงทุน:</b> ฿${tradeUsdt.toLocaleString()} THB\n` +
+            `🎯 <b>สัญญาณ:</b> ${latestCandle.colorNameTh}\n` +
+            `⏱️ <b>ไทม์เฟรม:</b> ${config.timeframe}\n` +
+            `📅 <b>เวลา:</b> ${new Date().toLocaleTimeString('th-TH')}`
+          );
         }
       }
     }
@@ -552,6 +605,11 @@ app.post('/api/bot/toggle', (req, res) => {
       ? '🟢 [CLOUD 24/7 STOCK BOT ACTIVATED] เริ่มระบบเทรดหุ้นไทยอัตโนมัติบนคลาวด์'
       : '🔴 [CLOUD STOCK BOT STOPPED] หยุดระบบเทรดอัตโนมัติ'
   );
+  sendTelegramAlert(
+    next
+      ? `🟢 <b>[CDC Stock Bot] เริ่มระบบอัตโนมัติ 24/7</b>\n\n🎯 เฝ้าระวังสัญญาณ CDC Action Zone V2 บนตลาดหุ้นไทย (SET)`
+      : `🔴 <b>[CDC Stock Bot] พักการทำงานของบอท</b>`
+  );
   return res.json({ success: true, isActive: next });
 });
 
@@ -610,6 +668,16 @@ app.post('/api/bot/manual-order', (req, res) => {
       `✋ [MANUAL ORDER] เปิด ${side} ${symbol} @ ฿${currentPrice} | ทุน ฿${amountUsdt} บาท (${sharesAmount.toLocaleString()} หุ้น)`
     );
     saveServerState();
+
+    sendTelegramAlert(
+      `✋ <b>[CDC Stock Bot] เปิดออเดอร์ด้วยตนเอง (${side})</b>\n\n` +
+      `📈 <b>หุ้น:</b> <code>${symbol}</code>\n` +
+      `💰 <b>ราคาเข้า:</b> ฿${currentPrice.toFixed(2)}\n` +
+      `📊 <b>จำนวน:</b> ${sharesAmount.toLocaleString()} หุ้น\n` +
+      `💵 <b>เงินลงทุน:</b> ฿${amountUsdt.toLocaleString()} THB\n` +
+      `📅 <b>เวลา:</b> ${new Date().toLocaleTimeString('th-TH')}`
+    );
+
     return res.json({ success: true });
   } catch (err: any) {
     return res.status(500).json({ error: sanitizeErrorMessage(err) });
@@ -676,6 +744,17 @@ app.post('/api/bot/close-position', async (req, res) => {
       `✋ [MANUAL CLOSE] ปิดสถานะ ${pos.symbol} @ ฿${currentPrice} | PnL: ${pnlUsdt >= 0 ? '+' : ''}฿${pnlUsdt.toFixed(2)} (${pnlPercent.toFixed(2)}%)`
     );
     saveServerState();
+
+    const isWin = pnlUsdt >= 0;
+    sendTelegramAlert(
+      `${isWin ? '🎯' : '🛑'} <b>[CDC Stock Bot] ปิดสถานะด้วยตนเอง (${pos.side})</b>\n\n` +
+      `📈 <b>หุ้น:</b> <code>${pos.symbol}</code>\n` +
+      `💰 <b>ราคาปิด:</b> ฿${currentPrice.toFixed(2)}\n` +
+      `💵 <b>ผลตอบแทน:</b> ${isWin ? '+' : ''}฿${pnlUsdt.toFixed(2)} (${pnlPercent >= 0 ? '+' : ''}${pnlPercent.toFixed(2)}%)\n` +
+      `📝 <b>เหตุผล:</b> ${reason}\n` +
+      `📅 <b>เวลา:</b> ${new Date().toLocaleTimeString('th-TH')}`
+    );
+
     return res.json({ success: true });
   } catch (err: any) {
     return res.status(500).json({ error: sanitizeErrorMessage(err) });
@@ -704,6 +783,44 @@ app.post('/api/bot/reset-paper', (req, res) => {
   addServerLog('🔄 รีเซ็ตพอร์ตจำลอง (Paper Account) เป็น ฿100,000 บาท เรียบร้อยแล้ว');
   saveServerState();
   return res.json({ success: true });
+});
+
+// 8. Telegram Notification Test & Configuration
+app.post('/api/telegram/test', async (req, res) => {
+  try {
+    const { botToken, chatId } = req.body;
+    const token = botToken || serverState.botConfig.telegramConfig?.botToken || process.env.TELEGRAM_BOT_TOKEN;
+    const chat = chatId || serverState.botConfig.telegramConfig?.chatId || process.env.TELEGRAM_CHAT_ID;
+
+    if (!token || !chat) {
+      return res.status(400).json({ error: 'กรุณากรอก Telegram Bot Token และ Chat ID ให้ครบถ้วน' });
+    }
+
+    const testMsg =
+      `🔔 <b>ทดสอบการเชื่อมต่อ Telegram สำเร็จ!</b>\n\n` +
+      `🚀 ระบบ <b>CDC Action Zone V2 SET Thai Stock Bot</b> เชื่อมต่อระบบแจ้งเตือนสำเร็จ พร้อมส่งสัญญาณเทรดและสรุปผลกำไร-ขาดทุนให้คุณแบบ Realtime 24/7 ครับ 📈✨`;
+
+    const url = `https://api.telegram.org/bot${token}/sendMessage`;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: chat,
+        text: testMsg,
+        parse_mode: 'HTML',
+      }),
+    });
+
+    const data = await response.json();
+    if (!data.ok) {
+      return res.status(400).json({ error: data.description || 'เกิดข้อผิดพลาดจาก Telegram API' });
+    }
+
+    addServerLog('🔔 ส่งข้อความทดสอบแจ้งเตือนเข้า Telegram สำเร็จ');
+    return res.json({ success: true });
+  } catch (err: any) {
+    return res.status(500).json({ error: sanitizeErrorMessage(err) });
+  }
 });
 
 // 8. Health check & uptime

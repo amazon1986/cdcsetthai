@@ -25,8 +25,12 @@
   - คำนวณ PnL, Win Rate, Profit Factor, Max Drawdown และกราฟการเติบโตของพอร์ต (Equity Curve)
 - 🤖 **วิเคราะห์โครงสร้างราคาด้วย Gemini AI (CDC Specialist):**
   - ผู้ช่วย AI วิเคราะห์แนวรับ-แนวต้าน แนวโน้มราคา และประเมินความเสี่ยงตามหลัก CDC Action Zone
+- 📲 **ระบบแจ้งเตือนผ่าน Telegram (Telegram Bot Notifications):**
+  - แจ้งเตือนสัญญาณเข้าซื้อ (Buy Entry) พร้อมราคาและจำนวนหุ้นแบบ Realtime
+  - แจ้งเตือนเมื่อปิดสถานะขาย (Sell / Take Profit / Stop Loss) พร้อมสรุปกำไรขาดทุน (PnL ฿ และ %)
+  - แจ้งเตือนสถานะการเปิด/ปิดบอท และสามารถทดสอบส่งข้อความ (Test Alert) ได้จากหน้าต่างตั้งค่า
 - 🛡️ **ความปลอดภัยระดับมาตรฐาน (Hardened Security):**
-  - เข้ารหัส API Key ก่อนบันทึกใน LocalStorage
+  - เข้ารหัส API Key และ Telegram Token ก่อนบันทึกใน LocalStorage
   - มีโหมด **Paper Trading (พอร์ตจำลอง ฿100,000)** สำหรับทดลองและฝึกฝนระบบอย่างปลอดภัย
 
 ---

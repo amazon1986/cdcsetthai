@@ -7,6 +7,7 @@ const STORAGE_KEYS = {
   PAPER_ACCOUNT: 'cdc_stock_paper_account_v2',
   TRADE_HISTORY: 'cdc_stock_trade_history_v2',
   SETTRADE_KEYS: 'cdc_settrade_keys_v2',
+  TELEGRAM_CONFIG: 'cdc_telegram_config_v2',
   BOT_LOGS: 'cdc_stock_bot_logs_v2',
   CUSTOM_SYMBOLS: 'cdc_stock_custom_symbols_v2',
 };
@@ -146,6 +147,30 @@ export function saveBrokerKeys(keys: SettradeApiKeys): void {
     brokerId: encryptText(keys.brokerId),
   };
   localStorage.setItem(STORAGE_KEYS.SETTRADE_KEYS, JSON.stringify(encryptedKeys));
+}
+
+export function getStoredTelegramConfig(): { botToken: string; chatId: string; isEnabled: boolean } {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.TELEGRAM_CONFIG);
+    if (!raw) return { botToken: '', chatId: '', isEnabled: false };
+    const parsed = JSON.parse(raw);
+    return {
+      botToken: parsed.botToken ? decryptText(parsed.botToken) : '',
+      chatId: parsed.chatId || '',
+      isEnabled: !!parsed.isEnabled,
+    };
+  } catch {
+    return { botToken: '', chatId: '', isEnabled: false };
+  }
+}
+
+export function saveTelegramConfig(config: { botToken: string; chatId: string; isEnabled: boolean }): void {
+  const encrypted = {
+    botToken: encryptText(config.botToken),
+    chatId: config.chatId,
+    isEnabled: config.isEnabled,
+  };
+  localStorage.setItem(STORAGE_KEYS.TELEGRAM_CONFIG, JSON.stringify(encrypted));
 }
 
 export function getStoredLogs(): string[] {

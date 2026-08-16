@@ -19,6 +19,8 @@ import {
   addTradeToHistory,
   getStoredBrokerKeys,
   saveBrokerKeys,
+  getStoredTelegramConfig,
+  saveTelegramConfig,
   getStoredLogs,
   addBotLog,
   getStoredSymbols,
@@ -85,6 +87,7 @@ export default function App() {
   const [chartTimeframe, setChartTimeframe] = useState<Timeframe>(() => getStoredBotConfig().timeframe || '1d');
   const [paperAccount, setPaperAccount] = useState<PaperAccount>(getStoredPaperAccount);
   const [brokerKeys, setBrokerKeys] = useState<SettradeApiKeys>(getStoredBrokerKeys);
+  const [telegramConfig, setTelegramConfig] = useState<{ botToken: string; chatId: string; isEnabled: boolean }>(getStoredTelegramConfig);
   const [tradeHistory, setTradeHistory] = useState<ExecutedTrade[]>(getStoredTradeHistory);
   const [botLogs, setBotLogs] = useState<string[]>(getStoredLogs);
 
@@ -498,8 +501,14 @@ export default function App() {
         onClose={() => setIsSettingsOpen(false)}
         keys={brokerKeys}
         botConfig={botConfig}
+        telegramConfig={telegramConfig}
         onSaveKeys={handleSaveBrokerKeys}
         onSaveConfig={handleSaveBotConfig}
+        onSaveTelegramConfig={(newTg) => {
+          setTelegramConfig(newTg);
+          saveTelegramConfig(newTg);
+          showToast('บันทึกการตั้งค่า Telegram เรียบร้อย', 'info');
+        }}
       />
     </div>
   );

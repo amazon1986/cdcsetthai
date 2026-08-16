@@ -1,7 +1,7 @@
 {
   "botConfig": {
     "id": "default_bot",
-    "symbol": "PTT",
+    "symbol": "AOT",
     "timeframe": "1d",
     "fastEmaPeriod": 12,
     "slowEmaPeriod": 26,
@@ -25,7 +25,12 @@
     "mode": "PAPER",
     "scanMode": "SINGLE",
     "directionMode": "LONG_ONLY",
-    "isActive": false
+    "isActive": false,
+    "telegramConfig": {
+      "botToken": "8699262679:AAE_m9WPAiAqrEG0U1IACEoy2NjEUIveoGU",
+      "chatId": "",
+      "isEnabled": false
+    }
   },
   "paperAccount": {
     "usdtBalance": 100000,
@@ -38,6 +43,12 @@
   },
   "tradeHistory": [],
   "botLogs": [
+    "[04:01:54] ⚙️ อัปเดตการตั้งค่าบอท: AOT | TF: 1d | สถานะ: หยุด 🔴",
+    "[03:37:02] ⚙️ อัปเดตการตั้งค่าบอท: AOT | TF: 1d | สถานะ: หยุด 🔴",
+    "[03:35:52] ⚙️ อัปเดตการตั้งค่าบอท: AOT | TF: 1d | สถานะ: เปิดทำงาน 🟢",
+    "[03:35:20] ⚙️ อัปเดตการตั้งค่าบอท: PTT | TF: 1d | สถานะ: เปิดทำงาน 🟢",
+    "[03:34:51] ⚙️ อัปเดตการตั้งค่าบอท: CPN | TF: 1d | สถานะ: เปิดทำงาน 🟢",
+    "[03:34:47] ⚙️ อัปเดตการตั้งค่าบอท: CPN | TF: 1d | สถานะ: หยุด 🔴",
     "[03:00:00] 🚀 CDC Action Zone V2 SET Thai Stock Bot Server initialized and ready."
   ],
   "liveApiKeys": {

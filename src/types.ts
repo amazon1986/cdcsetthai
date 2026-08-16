@@ -63,9 +63,20 @@ export interface BotConfig {
   marketType?: 'SPOT' | 'FUTURES';
   scanMode?: 'SINGLE' | 'MULTI_SCAN';
   directionMode?: 'LONG_ONLY' | 'SHORT_ONLY' | 'BOTH';
+  telegramConfig?: {
+    botToken: string;
+    chatId: string;
+    isEnabled: boolean;
+  };
   isActive: boolean;
   lastSignal?: CDCSignalType;
   lastExecutionTime?: number;
+}
+
+export interface TelegramConfig {
+  botToken: string;
+  chatId: string;
+  isEnabled: boolean;
 }
 
 export interface PaperPosition {
