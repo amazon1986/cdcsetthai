@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
-import { ExecutedTrade, PaperPosition, BitkubTicker24h } from '../types';
+import { ExecutedTrade, PaperPosition, StockTicker24h } from '../types';
 import { History, Download, Trash2, ArrowUpRight, ArrowDownRight, Search, Activity, XCircle } from 'lucide-react';
-import { formatCryptoPrice, formatCryptoAmount } from '../lib/bitkubApi';
+import { formatStockPrice, formatStockAmount } from '../lib/stockApi';
 
 interface TradeHistoryTableProps {
   trades: ExecutedTrade[];
   onClearHistory: () => void;
   activePositions?: PaperPosition[];
   onClosePosition?: (symbol: string) => void;
-  allTickers?: BitkubTicker24h[];
+  allTickers?: StockTicker24h[];
 }
 
 export const TradeHistoryTable: React.FC<TradeHistoryTableProps> = ({
@@ -175,8 +175,8 @@ export const TradeHistoryTable: React.FC<TradeHistoryTableProps> = ({
                           {pos.side}
                         </span>
                       </td>
-                      <td className="p-2.5 text-slate-300">{formatCryptoPrice(pos.entryPrice)}</td>
-                      <td className="p-2.5 font-bold text-white">{formatCryptoPrice(livePrice > 0 ? livePrice : pos.entryPrice)}</td>
+                      <td className="p-2.5 text-slate-300">{formatStockPrice(pos.entryPrice)}</td>
+                      <td className="p-2.5 font-bold text-white">{formatStockPrice(livePrice > 0 ? livePrice : pos.entryPrice)}</td>
                       <td className="p-2.5 text-emerald-400 font-bold">฿{margin.toFixed(2)}</td>
                       <td className="p-2.5">
                         <div
@@ -316,8 +316,8 @@ export const TradeHistoryTable: React.FC<TradeHistoryTableProps> = ({
                       </td>
                       <td className="p-2.5 font-bold text-white">{t.symbol}</td>
                       <td className="p-2.5">{renderSideBadge(t.side, t.reason)}</td>
-                      <td className="p-2.5 font-bold text-white">{formatCryptoPrice(t.price)}</td>
-                      <td className="p-2.5 font-mono">{formatCryptoAmount(t.amount)}</td>
+                      <td className="p-2.5 font-bold text-white">{formatStockPrice(t.price)}</td>
+                      <td className="p-2.5 font-mono">{formatStockAmount(t.amount)}</td>
                       <td className="p-2.5">฿{t.usdtValue.toFixed(2)}</td>
                       <td className="p-2.5">
                         {activePosForTrade ? (

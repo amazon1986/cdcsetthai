@@ -1,34 +1,34 @@
-import { BotConfig, PaperAccount, ExecutedTrade, BitkubApiKeys, PaperPosition, Timeframe } from '../types';
-import { encryptText, decryptText } from './crypto';
-import { POPULAR_PAIRS } from './bitkubApi';
+import { BotConfig, PaperAccount, ExecutedTrade, SettradeApiKeys, PaperPosition, Timeframe } from '../types';
+import { encryptText, decryptText } from './encryption';
+import { POPULAR_STOCKS } from './stockApi';
 
 const STORAGE_KEYS = {
-  BOT_CONFIG: 'cdc_bot_config_v2',
-  PAPER_ACCOUNT: 'cdc_paper_account_v2',
-  TRADE_HISTORY: 'cdc_trade_history_v2',
-  BITKUB_KEYS: 'cdc_bitkub_keys_v2',
-  BOT_LOGS: 'cdc_bot_logs_v2',
-  CUSTOM_SYMBOLS: 'cdc_custom_symbols_v2',
+  BOT_CONFIG: 'cdc_stock_bot_config_v2',
+  PAPER_ACCOUNT: 'cdc_stock_paper_account_v2',
+  TRADE_HISTORY: 'cdc_stock_trade_history_v2',
+  SETTRADE_KEYS: 'cdc_settrade_keys_v2',
+  BOT_LOGS: 'cdc_stock_bot_logs_v2',
+  CUSTOM_SYMBOLS: 'cdc_stock_custom_symbols_v2',
 };
 
 export const DEFAULT_BOT_CONFIG: BotConfig = {
   id: 'default_bot',
   symbol: 'PTT',
-  timeframe: '1d', // 🚀 Default to 1D (Daily) as requested by user
+  timeframe: '1d', // 🎯 Standard Daily timeframe according to Uncle Chaloke
   fastEmaPeriod: 12,
   slowEmaPeriod: 26,
-  tradeAmountUsdt: 10000, // THB value
+  tradeAmountUsdt: 10000, // Budget per order in THB (฿)
   usePercentBalance: true,
   balancePercent: 20,
   positionSizingMode: 'EQUAL_WEIGHT', // 🎯 ถัวเฉลี่ยเท่ากันทุกหุ้น (Equal Weight Sizing)
-  leverage: 1, // ⚡ Default 1x (1x to 10x)
-  maxOpenPositions: 5, // 🎯 ถือครองสูงสุด 5 ไม้ (แบ่งเท่ากันไม้ละ 20% ของพอร์ตรวม)
+  leverage: 1,
+  maxOpenPositions: 5, // 🎯 ถือครองสูงสุด 5 ตัว (ไม้ละ 20% ของพอร์ตรวม)
   stopLossPercent: 5,
   takeProfitPercent: 15,
   useTrailingStop: false,
   trailingStopPercent: 3,
-  buyOnSignal: ['BLUE', 'GREEN'], // 🎯 สัญญาณฟ้าแรก หรือ เขียวแรกคอนเฟิร์มตามลุงโฉลก (Safe Confirmed Entry)
-  sellOnSignal: ['RED'], // 🎯 ขายออก/Short เฉพาะสัญญาณแดงแรกคอนเฟิร์ม (Bearish Cash Out)
+  buyOnSignal: ['BLUE', 'GREEN'], // 🎯 สัญญาณฟ้าแรก หรือ เขียวแรกตามระบบ CDC Action Zone V2 ลุงโฉลก
+  sellOnSignal: ['RED'], // 🎯 ขายออกตามสัญญาณแดงแรก (Bearish Cash Out)
   mode: 'PAPER',
   scanMode: 'SINGLE',
   directionMode: 'LONG_ONLY',
@@ -36,7 +36,7 @@ export const DEFAULT_BOT_CONFIG: BotConfig = {
 };
 
 export const DEFAULT_PAPER_ACCOUNT: PaperAccount = {
-  usdtBalance: 100000, // Initial THB balance
+  usdtBalance: 100000, // Initial THB ฿100,000
   initialUsdtBalance: 100000,
   activePositions: [],
   totalTrades: 0,
@@ -53,9 +53,13 @@ export function getStoredBotConfig(): BotConfig {
     if (!raw) return DEFAULT_BOT_CONFIG;
     const parsed = JSON.parse(raw);
     const lev = Math.min(Math.max(1, parseInt(parsed.leverage || 1, 10)), 10);
-    
+
     let cleanSymbol = parsed.symbol || 'PTT';
-    if (cleanSymbol.includes('_') || cleanSymbol.includes('/') || ['BTC', 'ETH', 'USDT', 'KUB', 'ADA', 'XRP'].includes(cleanSymbol.toUpperCase())) {
+    if (
+      cleanSymbol.includes('_') ||
+      cleanSymbol.includes('/') ||
+      ['BTC', 'ETH', 'USDT', 'KUB', 'ADA', 'XRP', 'DOGE', 'SOL', 'BNB'].includes(cleanSymbol.toUpperCase())
+    ) {
       cleanSymbol = 'PTT';
     }
 
@@ -63,6 +67,7 @@ export function getStoredBotConfig(): BotConfig {
       ...DEFAULT_BOT_CONFIG,
       ...parsed,
       symbol: cleanSymbol,
+      mode: parsed.mode === 'SETTRADE_LIVE' ? 'SETTRADE_LIVE' : 'PAPER',
       leverage: isNaN(lev) ? 1 : lev,
       timeframe: parsed.timeframe || '1d',
       maxOpenPositions: parsed.maxOpenPositions && parsed.maxOpenPositions > 0 ? parsed.maxOpenPositions : 5,
@@ -84,7 +89,7 @@ export function getStoredPaperAccount(): PaperAccount {
     const raw = localStorage.getItem(STORAGE_KEYS.PAPER_ACCOUNT);
     if (!raw) return DEFAULT_PAPER_ACCOUNT;
     const parsed = JSON.parse(raw);
-    if (parsed.usdtBalance === 1000 || parsed.usdtBalance === 30000) {
+    if (parsed.usdtBalance === 1000 || parsed.usdtBalance === 30000 || !parsed.usdtBalance) {
       parsed.usdtBalance = 100000;
       parsed.initialUsdtBalance = 100000;
     }
@@ -117,26 +122,30 @@ export function addTradeToHistory(trade: ExecutedTrade): void {
   saveTradeHistory(updated);
 }
 
-export function getStoredBitkubKeys(): BitkubApiKeys {
+export function getStoredBrokerKeys(): SettradeApiKeys {
   try {
-    const raw = localStorage.getItem(STORAGE_KEYS.BITKUB_KEYS);
+    const raw = localStorage.getItem(STORAGE_KEYS.SETTRADE_KEYS);
     if (!raw) return { apiKey: '', apiSecret: '' };
     const parsed = JSON.parse(raw);
     return {
       apiKey: decryptText(parsed.apiKey),
       apiSecret: decryptText(parsed.apiSecret),
+      appCode: parsed.appCode ? decryptText(parsed.appCode) : '',
+      brokerId: parsed.brokerId ? decryptText(parsed.brokerId) : '',
     };
   } catch {
     return { apiKey: '', apiSecret: '' };
   }
 }
 
-export function saveBitkubKeys(keys: BitkubApiKeys): void {
+export function saveBrokerKeys(keys: SettradeApiKeys): void {
   const encryptedKeys = {
     apiKey: encryptText(keys.apiKey),
     apiSecret: encryptText(keys.apiSecret),
+    appCode: encryptText(keys.appCode),
+    brokerId: encryptText(keys.brokerId),
   };
-  localStorage.setItem(STORAGE_KEYS.BITKUB_KEYS, JSON.stringify(encryptedKeys));
+  localStorage.setItem(STORAGE_KEYS.SETTRADE_KEYS, JSON.stringify(encryptedKeys));
 }
 
 export function getStoredLogs(): string[] {
@@ -163,12 +172,15 @@ export function getStoredSymbols(): string[] {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed;
+        const cleanList = parsed.filter(
+          (s) => !['BTC', 'ETH', 'USDT', 'KUB', 'ADA', 'XRP', 'DOGE', 'SOL', 'BNB'].includes(s.toUpperCase())
+        );
+        if (cleanList.length > 0) return cleanList;
       }
     }
-    return POPULAR_PAIRS;
+    return POPULAR_STOCKS;
   } catch {
-    return POPULAR_PAIRS;
+    return POPULAR_STOCKS;
   }
 }
 

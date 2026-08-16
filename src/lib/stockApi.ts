@@ -1,35 +1,31 @@
-import { KlineData, BitkubTicker24h, OrderBookData, Timeframe } from '../types';
+import { KlineData, StockTicker24h, OrderBookData, Timeframe, SettradeApiKeys } from '../types';
 
-const BITKUB_PUBLIC_BASE = 'https://api.bitkub.com';
-
-export function toBitkubSymbol(symbol: string): string {
-  const clean = symbol.toUpperCase().replace('/', '_');
-  if (clean.includes('_')) {
-    const [base, quote] = clean.split('_');
-    return `${quote}_${base}`;
-  }
-  return `THB_${clean}`;
+/**
+ * Normalizes Thai stock symbol for Yahoo Finance or SET API format (e.g. PTT -> PTT.BK)
+ */
+export function toStockSymbol(symbol: string): string {
+  const clean = symbol.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  return clean || 'PTT';
 }
 
-export function toFriendlySymbol(bitkubSymbol: string): string {
-  if (bitkubSymbol.includes('_')) {
-    const [quote, base] = bitkubSymbol.split('_');
-    return base; // Return stock ticker directly e.g. PTT
+export function toFriendlySymbol(symbol: string): string {
+  if (symbol.includes('_')) {
+    const parts = symbol.split('_');
+    return parts[1] === 'THB' ? parts[0] : parts[1];
   }
-  return bitkubSymbol;
+  return symbol.replace('.BK', '').toUpperCase();
 }
 
 /**
- * Fetches historical Kline / Candlestick data from Bitkub TradingView history.
+ * Fetches historical Kline / Candlestick data for Thai Stock (SET)
  */
-export async function fetchBitkubKlines(
+export async function fetchStockKlines(
   symbol = 'PTT',
   interval: Timeframe = '1d',
   limit = 300
 ): Promise<KlineData[]> {
-  const friendlySymbol = symbol.toUpperCase().replace('/', '_');
-  
-  // Map interval to TradingView resolution
+  const friendlySymbol = toStockSymbol(symbol);
+
   let resolution = '1D';
   let timeStepSeconds = 86400;
 
@@ -68,12 +64,14 @@ export async function fetchBitkubKlines(
   }
 
   const to = Math.floor(Date.now() / 1000);
-  const from = to - (limit * timeStepSeconds);
+  const from = to - limit * timeStepSeconds;
 
   try {
-    const response = await fetch(`/api/bitkub/klines?symbol=${friendlySymbol}&resolution=${resolution}&from=${from}&to=${to}`);
+    const response = await fetch(
+      `/api/stock/klines?symbol=${friendlySymbol}&resolution=${resolution}&from=${from}&to=${to}`
+    );
     if (!response.ok) {
-      throw new Error(`Failed to fetch Bitkub Klines: ${response.statusText}`);
+      throw new Error(`Failed to fetch Stock Klines: ${response.statusText}`);
     }
 
     const data = await response.json();
@@ -83,7 +81,7 @@ export async function fetchBitkubKlines(
     }
 
     return data.t.map((t: number, i: number) => ({
-      time: t * 1000, // convert to ms for client consumption
+      time: t * 1000, // convert to ms for lightweight-charts
       open: parseFloat(data.o[i]),
       high: parseFloat(data.h[i]),
       low: parseFloat(data.l[i]),
@@ -91,26 +89,29 @@ export async function fetchBitkubKlines(
       volume: parseFloat(data.v[i]),
     }));
   } catch (error) {
-    console.error('Error fetching Bitkub Klines:', error);
+    console.error('Error fetching Stock Klines:', error);
     return [];
   }
 }
 
 /**
- * Fetches 24h ticker info for a symbol or top symbols.
+ * Fetches 24h ticker info for Thai stocks.
  */
-export async function fetchBitkubTicker24h(symbol?: string): Promise<BitkubTicker24h[]> {
+export async function fetchStockTicker24h(symbol?: string): Promise<StockTicker24h[]> {
   try {
-    const searchSymbol = symbol ? toBitkubSymbol(symbol) : '';
-    const response = await fetch(`/api/bitkub/ticker`);
+    const searchSymbol = symbol ? toStockSymbol(symbol) : '';
+    const response = await fetch(`/api/stock/ticker`);
 
     if (!response.ok) throw new Error('Ticker fetch failed');
 
     const data = await response.json();
-    
+
     let pairs: [string, any][] = [];
     if (searchSymbol) {
-      if (data[searchSymbol]) {
+      const key = `THB_${searchSymbol}`;
+      if (data[key]) {
+        pairs = [[key, data[key]]];
+      } else if (data[searchSymbol]) {
         pairs = [[searchSymbol, data[searchSymbol]]];
       }
     } else {
@@ -123,8 +124,8 @@ export async function fetchBitkubTicker24h(symbol?: string): Promise<BitkubTicke
         symbol: friendlySym,
         lastPrice: parseFloat(t.last),
         priceChangePercent: parseFloat(t.percentChange),
-        highPrice: parseFloat(t.lowestAsk || t.last), // Bitkub doesn't give 24h high directly, mock with lowestAsk
-        lowPrice: parseFloat(t.highestBid || t.last),  // Mock with highestBid
+        highPrice: parseFloat(t.lowestAsk || t.last),
+        lowPrice: parseFloat(t.highestBid || t.last),
         volume: parseFloat(t.baseVolume),
         quoteVolume: parseFloat(t.quoteVolume),
       };
@@ -136,11 +137,11 @@ export async function fetchBitkubTicker24h(symbol?: string): Promise<BitkubTicke
 }
 
 /**
- * Fetches orderbook depth (bids and asks) for a symbol.
+ * Fetches orderbook depth (bids and asks) for a stock.
  */
 export async function fetchOrderBook(symbol = 'PTT', limit = 15): Promise<OrderBookData> {
   try {
-    const res = await fetch(`/api/bitkub/depth?symbol=${symbol}&limit=${limit}`);
+    const res = await fetch(`/api/stock/depth?symbol=${symbol}&limit=${limit}`);
 
     if (!res.ok) throw new Error('Orderbook fetch failed');
 
@@ -169,26 +170,25 @@ export async function fetchOrderBook(symbol = 'PTT', limit = 15): Promise<OrderB
 }
 
 /**
- * Formats crypto prices dynamically based on magnitude.
- * Displays with Thai Baht currency symbol (฿).
+ * Formats stock prices in Thai Baht (฿).
  */
-export function formatCryptoPrice(price: number | undefined | null): string {
+export function formatStockPrice(price: number | undefined | null): string {
   if (price === undefined || price === null || isNaN(price)) return '฿0.00';
   return `฿${price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 /**
- * Formats stock quantities/amounts dynamically based on magnitude.
+ * Formats stock volume and share quantities.
  */
-export function formatCryptoAmount(amount: number | undefined | null): string {
+export function formatStockAmount(amount: number | undefined | null): string {
   if (amount === undefined || amount === null || isNaN(amount)) return '0';
-  return amount.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+  return Math.round(amount).toLocaleString('en-US');
 }
 
 /**
- * Popular stock symbols on Thai Stock Market (SET)
+ * Popular SET50 and SET100 Thai Stocks
  */
-export const POPULAR_PAIRS = [
+export const POPULAR_STOCKS = [
   'PTT',
   'CPALL',
   'AOT',
@@ -204,63 +204,75 @@ export const POPULAR_PAIRS = [
   'CPF',
   'HMPRO',
   'SCC',
+  'BBL',
+  'MTC',
+  'TOP',
+  'GPSC',
+  'INTUCH',
+  'OR',
+  'BANPU',
+  'IVL',
+  'MINT',
+  'BEM',
+  'WHA',
+  'CBG',
+  'KTC',
+  'SAWAD',
+  'CPN',
 ];
 
-export interface SymbolExchangeRules {
+export interface StockExchangeRules {
   symbol: string;
-  stepSize: number;
+  stepSize: number; // Standard lot size = 100 shares
   minQty: number;
   tickSize: number;
   minNotional: number;
-  baseAssetPrecision: number;
-  quotePrecision: number;
 }
 
 /**
- * Helper to return static rules for Bitkub Spot trading.
+ * Standard Stock Exchange of Thailand (SET) Tick Size & Lot Rules
  */
-export async function fetchSymbolExchangeInfo(symbol: string): Promise<SymbolExchangeRules | null> {
-  const formatted = symbol.toUpperCase().replace('/', '_');
+export function getSetStockTickSize(price: number): number {
+  if (price < 2.0) return 0.01;
+  if (price < 5.0) return 0.02;
+  if (price < 10.0) return 0.05;
+  if (price < 25.0) return 0.10;
+  if (price < 100.0) return 0.25;
+  if (price < 200.0) return 0.50;
+  if (price < 400.0) return 1.00;
+  return 2.00;
+}
+
+export async function fetchSymbolExchangeInfo(symbol: string): Promise<StockExchangeRules | null> {
+  const formatted = toStockSymbol(symbol);
   return {
     symbol: formatted,
-    stepSize: 0.00000001,
-    minQty: 0.0001,
-    tickSize: formatted.startsWith('BTC') || formatted.startsWith('ETH') ? 1.0 : 0.01,
-    minNotional: 10, // Bitkub minimum order size is 10 THB
-    baseAssetPrecision: 8,
-    quotePrecision: 2,
+    stepSize: 100, // 1 board lot = 100 shares
+    minQty: 100,
+    tickSize: 0.25,
+    minNotional: 10,
   };
 }
 
-/**
- * Formats quantity for Bitkub (up to 8 decimals, no trailing zeros).
- */
-export function formatQuantityByStepSize(qty: number, stepSize?: number): number {
-  return parseFloat(qty.toFixed(8));
+export function formatStockPriceByTickSize(price: number, tickSize?: number): number {
+  const ts = tickSize || getSetStockTickSize(price);
+  return parseFloat((Math.round(price / ts) * ts).toFixed(2));
 }
 
 /**
- * Formats price for Bitkub (up to 2 or 4 decimals, no trailing zeros).
+ * Sends a signed Live Order to Settrade Open API / Thai Broker
  */
-export function formatPriceByTickSize(price: number, tickSize?: number): number {
-  const decimals = price < 1 ? 4 : 2;
-  return parseFloat(price.toFixed(decimals));
-}
-
-/**
- * Sends a signed Live Order to Bitkub via backend proxy
- */
-export async function executeLiveBitkubOrder(params: {
+export async function executeLiveStockOrder(params: {
   apiKey: string;
   apiSecret: string;
   symbol: string;
   side: 'BUY' | 'SELL';
-  quantity: number; // THB for BUY (Market), crypto for SELL or Limit
+  quantity: number; // shares count
   price?: number; // 0 for market
   orderType?: 'MARKET' | 'LIMIT';
 }): Promise<{ success: boolean; order?: any; error?: string }> {
   try {
-    const res = await fetch('/api/bitkub/order', {
+    const res = await fetch('/api/stock/order', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(params),
@@ -268,7 +280,7 @@ export async function executeLiveBitkubOrder(params: {
 
     const data = await res.json();
     if (!res.ok || data.error) {
-      return { success: false, error: data.error || 'Live order failed' };
+      return { success: false, error: data.error || 'Live stock order failed' };
     }
     return { success: true, order: data.order };
   } catch (err: any) {
@@ -277,15 +289,15 @@ export async function executeLiveBitkubOrder(params: {
 }
 
 /**
- * Fetches real account THB balance from Bitkub signed endpoint
+ * Fetches real account THB balance from Settrade / Broker signed endpoint
  */
-export async function fetchLiveBitkubBalances(keys: {
+export async function fetchLiveStockBalances(keys: {
   apiKey: string;
   apiSecret: string;
 }): Promise<number | null> {
   if (!keys.apiKey || !keys.apiSecret) return null;
   try {
-    const res = await fetch('/api/bitkub/balances', {
+    const res = await fetch('/api/stock/balances', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(keys),
@@ -295,7 +307,6 @@ export async function fetchLiveBitkubBalances(keys: {
     const data = await res.json();
     if (!data.success || data.error) return null;
 
-    // Bitkub returns available in data.balances under asset key
     const thb = (data.balances || []).find((b: any) => b.asset === 'THB');
     return thb ? parseFloat(thb.free) : 0;
   } catch (err) {

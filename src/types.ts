@@ -20,7 +20,7 @@ export interface KlineData {
   actionRecommendation?: string;
 }
 
-export interface BitkubTicker24h {
+export interface StockTicker24h {
   symbol: string;
   lastPrice: number;
   priceChangePercent: number;
@@ -47,7 +47,7 @@ export interface BotConfig {
   timeframe: Timeframe;
   fastEmaPeriod: number;
   slowEmaPeriod: number;
-  tradeAmountUsdt: number;
+  tradeAmountUsdt: number; // Trade budget in THB (฿)
   usePercentBalance: boolean;
   balancePercent: number;
   positionSizingMode?: 'EQUAL_WEIGHT' | 'PERCENT_EQUITY' | 'FIXED_USDT';
@@ -59,7 +59,7 @@ export interface BotConfig {
   trailingStopPercent: number;
   buyOnSignal: ('BLUE' | 'GREEN')[];
   sellOnSignal: ('YELLOW' | 'RED')[];
-  mode: 'PAPER' | 'BITKUB_LIVE';
+  mode: 'PAPER' | 'SETTRADE_LIVE';
   marketType?: 'SPOT' | 'FUTURES';
   scanMode?: 'SINGLE' | 'MULTI_SCAN';
   directionMode?: 'LONG_ONLY' | 'SHORT_ONLY' | 'BOTH';
@@ -72,26 +72,26 @@ export interface PaperPosition {
   symbol: string;
   side: 'LONG' | 'SHORT';
   entryPrice: number;
-  amount: number; // Number of coins
-  usdtInvested: number; // Initial Margin
-  marginUsdt?: number; // Margin reserved
-  leverage?: number; // Leverage 1x-10x used
-  liquidationPrice?: number; // Estimated liquidation price
+  amount: number; // Number of shares (หุ้น)
+  usdtInvested: number; // Invested Capital in THB (฿)
+  marginUsdt?: number; // Margin reserved in THB (฿)
+  leverage?: number; // Leverage 1x-10x
+  liquidationPrice?: number; // Liquidation price if leveraged
   entryTime: number;
   stopLossPrice?: number;
   takeProfitPrice?: number;
-  currentPnlUsdt: number;
+  currentPnlUsdt: number; // Current PnL in THB (฿)
   currentPnlPercent: number;
 }
 
 export interface PaperAccount {
-  usdtBalance: number;
-  initialUsdtBalance: number;
+  usdtBalance: number; // Cash balance in THB (฿)
+  initialUsdtBalance: number; // Initial balance in THB (฿)
   activePositions: PaperPosition[];
   totalTrades: number;
   winningTrades: number;
   losingTrades: number;
-  totalProfitUsdt: number;
+  totalProfitUsdt: number; // Total realized profit in THB (฿)
 }
 
 export interface ExecutedTrade {
@@ -100,14 +100,14 @@ export interface ExecutedTrade {
   timeframe: Timeframe;
   side: 'BUY' | 'SELL' | 'LONG' | 'SHORT' | 'CLOSE_LONG' | 'CLOSE_SHORT';
   price: number;
-  amount: number;
-  usdtValue: number;
+  amount: number; // Number of shares
+  usdtValue: number; // Order value in THB (฿)
   leverage?: number;
-  pnlUsdt?: number;
+  pnlUsdt?: number; // Realized PnL in THB (฿)
   pnlPercent?: number;
   reason: string;
   timestamp: number;
-  mode: 'PAPER' | 'BITKUB_LIVE';
+  mode: 'PAPER' | 'SETTRADE_LIVE';
 }
 
 export interface BacktestTrade {
@@ -117,7 +117,7 @@ export interface BacktestTrade {
   entryPrice: number;
   exitPrice: number;
   side: 'BUY' | 'SELL';
-  pnlUsdt: number;
+  pnlUsdt: number; // PnL in THB (฿)
   pnlPercent: number;
   entryReason: string;
   exitReason: string;
@@ -141,7 +141,7 @@ export interface BacktestResult {
   equityCurve: { time: number; equity: number; price: number }[];
 }
 
-export interface ScannerCoinResult {
+export interface ScannerStockResult {
   symbol: string;
   currentPrice: number;
   priceChange24h: number;
@@ -155,9 +155,11 @@ export interface ScannerCoinResult {
   lastSignalTime: string;
 }
 
-export interface BitkubApiKeys {
+export interface SettradeApiKeys {
   apiKey: string;
   apiSecret: string;
+  appCode?: string;
+  brokerId?: string;
 }
 
 export interface AiAnalysisResponse {

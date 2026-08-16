@@ -1,4 +1,4 @@
-import { BotConfig, PaperAccount, ExecutedTrade } from '../types';
+import { BotConfig, PaperAccount, ExecutedTrade, SettradeApiKeys } from '../types';
 
 export interface BotServerState {
   botConfig: BotConfig;
@@ -56,7 +56,7 @@ export async function toggleBotServer(isActive?: boolean): Promise<{ success: bo
 }
 
 /**
- * Sends a manual buy/long or short order to the server.
+ * Sends a manual buy/long or sell order to the server.
  */
 export async function sendManualOrderToServer(params: {
   symbol: string;
@@ -123,14 +123,11 @@ export async function resetBotServerPaperAccount(): Promise<boolean> {
 }
 
 /**
- * Saves encrypted Bitkub API keys to backend server for 24/7 automated execution.
+ * Saves encrypted Settrade / Broker API keys to backend server for 24/7 automated execution.
  */
-export async function saveBitkubKeysToServer(keys: {
-  apiKey: string;
-  apiSecret: string;
-}): Promise<boolean> {
+export async function saveBrokerKeysToServer(keys: SettradeApiKeys): Promise<boolean> {
   try {
-    const res = await fetch('/api/bitkub/keys', {
+    const res = await fetch('/api/stock/keys', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(keys),

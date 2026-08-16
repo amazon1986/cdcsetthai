@@ -16,7 +16,7 @@ import {
 import { KlineData, Timeframe, CDCZoneColor } from '../types';
 import { getStoredSymbols } from '../lib/botStore';
 import { getZoneColorHex } from '../lib/cdcIndicator';
-import { formatCryptoPrice } from '../lib/bitkubApi';
+import { formatStockPrice } from '../lib/stockApi';
 import { RefreshCw, Search, ChevronDown, Activity, Info, Zap, Layers } from 'lucide-react';
 
 interface CDCChartProps {
@@ -68,7 +68,7 @@ export const CDCChart: React.FC<CDCChartProps> = ({
   const [showRibbon, setShowRibbon] = useState(true);
   const [showSignalDots, setShowSignalDots] = useState(true);
   const [showCalloutBanner, setShowCalloutBanner] = useState(false); // 🚀 Clean view like TradingView (no bulky bubble blocking candles)
-  const [orderAmount, setOrderAmount] = useState('0.01');
+  const [orderAmount, setOrderAmount] = useState('100');
 
   // Hovered or latest candle state for top OHLC header
   const [hoveredCandle, setHoveredCandle] = useState<KlineData | null>(null);
@@ -278,7 +278,7 @@ export const CDCChart: React.FC<CDCChartProps> = ({
       wickDownColor: '#ef4444',
       priceFormat: {
         type: 'custom',
-        formatter: (price: number) => formatCryptoPrice(price).replace('$', ''),
+        formatter: (price: number) => formatStockPrice(price).replace('$', ''),
         minMove: 0.00000001,
       },
     });
@@ -292,7 +292,7 @@ export const CDCChart: React.FC<CDCChartProps> = ({
       title: 'EMA 12',
       priceFormat: {
         type: 'custom',
-        formatter: (price: number) => formatCryptoPrice(price).replace('$', ''),
+        formatter: (price: number) => formatStockPrice(price).replace('$', ''),
         minMove: 0.00000001,
       },
     });
@@ -306,7 +306,7 @@ export const CDCChart: React.FC<CDCChartProps> = ({
       title: 'EMA 26',
       priceFormat: {
         type: 'custom',
-        formatter: (price: number) => formatCryptoPrice(price).replace('$', ''),
+        formatter: (price: number) => formatStockPrice(price).replace('$', ''),
         minMove: 0.00000001,
       },
     });
@@ -394,7 +394,7 @@ export const CDCChart: React.FC<CDCChartProps> = ({
 
     const customPriceFormat = {
       type: 'custom' as const,
-      formatter: (price: number) => formatCryptoPrice(price).replace('$', ''),
+      formatter: (price: number) => formatStockPrice(price).replace('$', ''),
       minMove: dynamicMinMove,
     };
 
@@ -584,20 +584,20 @@ export const CDCChart: React.FC<CDCChartProps> = ({
           {activeDisplayCandle && (
             <div className="hidden lg:flex items-center space-x-3 text-[11px] font-mono">
               <span className="text-slate-400">
-                O: <span className={ohlcChange.isPositive ? 'text-emerald-400' : 'text-rose-400'}>{formatCryptoPrice(activeDisplayCandle.open)}</span>
+                O: <span className={ohlcChange.isPositive ? 'text-emerald-400' : 'text-rose-400'}>{formatStockPrice(activeDisplayCandle.open)}</span>
               </span>
               <span className="text-slate-400">
-                H: <span className="text-slate-200">{formatCryptoPrice(activeDisplayCandle.high)}</span>
+                H: <span className="text-slate-200">{formatStockPrice(activeDisplayCandle.high)}</span>
               </span>
               <span className="text-slate-400">
-                L: <span className="text-slate-200">{formatCryptoPrice(activeDisplayCandle.low)}</span>
+                L: <span className="text-slate-200">{formatStockPrice(activeDisplayCandle.low)}</span>
               </span>
               <span className="text-slate-400">
-                C: <span className={ohlcChange.isPositive ? 'text-emerald-400' : 'text-rose-400'}>{formatCryptoPrice(activeDisplayCandle.close)}</span>
+                C: <span className={ohlcChange.isPositive ? 'text-emerald-400' : 'text-rose-400'}>{formatStockPrice(activeDisplayCandle.close)}</span>
               </span>
               <span className={`font-bold ${ohlcChange.isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
                 {ohlcChange.isPositive ? '+' : ''}
-                {formatCryptoPrice(ohlcChange.diff)} ({ohlcChange.percent.toFixed(2)}%)
+                {formatStockPrice(ohlcChange.diff)} ({ohlcChange.percent.toFixed(2)}%)
               </span>
             </div>
           )}
@@ -606,10 +606,10 @@ export const CDCChart: React.FC<CDCChartProps> = ({
           {latestCandle && (
             <div className="flex items-center bg-[#131722] border border-[#2a2e39] rounded-lg overflow-hidden shadow-inner p-0.5">
               <button
-                onClick={() => alert(`สั่งขาย SELL ${symbol} @ ${formatCryptoPrice(latestCandle.close)}`)}
+                onClick={() => alert(`สั่งขาย SELL ${symbol} @ ${formatStockPrice(latestCandle.close)}`)}
                 className="bg-rose-600/90 hover:bg-rose-600 text-white font-bold px-2.5 py-1 text-[11px] transition flex items-center space-x-1"
               >
-                <span>{formatCryptoPrice(latestCandle.close).replace('$', '')}</span>
+                <span>{formatStockPrice(latestCandle.close).replace('$', '')}</span>
                 <span className="text-[9px] bg-black/30 px-1 rounded uppercase">SELL</span>
               </button>
 
@@ -623,10 +623,10 @@ export const CDCChart: React.FC<CDCChartProps> = ({
               </div>
 
               <button
-                onClick={() => alert(`สั่งซื้อ BUY ${symbol} @ ${formatCryptoPrice(latestCandle.close)}`)}
+                onClick={() => alert(`สั่งซื้อ BUY ${symbol} @ ${formatStockPrice(latestCandle.close)}`)}
                 className="bg-blue-600/90 hover:bg-blue-600 text-white font-bold px-2.5 py-1 text-[11px] transition flex items-center space-x-1"
               >
-                <span>{formatCryptoPrice(latestCandle.close).replace('$', '')}</span>
+                <span>{formatStockPrice(latestCandle.close).replace('$', '')}</span>
                 <span className="text-[9px] bg-black/30 px-1 rounded uppercase">BUY</span>
               </button>
             </div>
@@ -761,7 +761,7 @@ export const CDCChart: React.FC<CDCChartProps> = ({
                 {signalBannerInfo.actionText}
               </div>
               <div className="text-[11px] font-extrabold my-0.5 tracking-tight drop-shadow-sm">
-                {signalBannerInfo.symbol} {formatCryptoPrice(signalBannerInfo.price)}
+                {signalBannerInfo.symbol} {formatStockPrice(signalBannerInfo.price)}
               </div>
               <div className="text-[10px] font-medium opacity-90 leading-tight">
                 {signalBannerInfo.trendText}

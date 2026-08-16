@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { BotConfig, PaperAccount, PaperPosition, ExecutedTrade, Timeframe } from '../types';
-import { formatCryptoPrice, formatCryptoAmount } from '../lib/bitkubApi';
+import { formatStockPrice, formatStockAmount } from '../lib/stockApi';
 import {
   Play,
   Pause,
@@ -186,7 +186,7 @@ export const BotControlPanel: React.FC<BotControlPanelProps> = ({
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-2 border-t border-slate-800/80 text-xs font-mono">
                 <div>
                   <span className="text-slate-500 block text-[10px]">ราคาเข้า (Entry)</span>
-                  <span className="text-slate-200">{formatCryptoPrice(activePos.entryPrice)}</span>
+                  <span className="text-slate-200">{formatStockPrice(activePos.entryPrice)}</span>
                 </div>
                 <div>
                   <span className="text-slate-500 block text-[10px]">เงินลงทุน (Cost)</span>

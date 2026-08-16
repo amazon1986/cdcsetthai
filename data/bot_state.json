@@ -1,18 +1,18 @@
 {
   "botConfig": {
     "id": "default_bot",
-    "symbol": "BTC_THB",
+    "symbol": "PTT",
     "timeframe": "1d",
     "fastEmaPeriod": 12,
     "slowEmaPeriod": 26,
-    "tradeAmountUsdt": 1000,
+    "tradeAmountUsdt": 10000,
     "usePercentBalance": true,
     "balancePercent": 20,
     "positionSizingMode": "EQUAL_WEIGHT",
     "leverage": 1,
-    "maxOpenPositions": 10,
+    "maxOpenPositions": 5,
     "stopLossPercent": 5,
-    "takeProfitPercent": 30,
+    "takeProfitPercent": 15,
     "useTrailingStop": false,
     "trailingStopPercent": 3,
     "buyOnSignal": [
@@ -23,13 +23,13 @@
       "RED"
     ],
     "mode": "PAPER",
-    "scanMode": "MULTI_SCAN",
+    "scanMode": "SINGLE",
     "directionMode": "LONG_ONLY",
-    "isActive": true
+    "isActive": false
   },
   "paperAccount": {
-    "usdtBalance": 1000,
-    "initialUsdtBalance": 1000,
+    "usdtBalance": 100000,
+    "initialUsdtBalance": 100000,
     "activePositions": [],
     "totalTrades": 0,
     "winningTrades": 0,
@@ -38,32 +38,11 @@
   },
   "tradeHistory": [],
   "botLogs": [
-    "[03:33:34] 🔄 รีเซ็ตพอร์ตจำลอง (Paper Account) เรียบร้อยแล้ว",
-    "[03:33:29] 🔄 รีเซ็ตพอร์ตจำลอง (Paper Account) เรียบร้อยแล้ว",
-    "[03:33:22] 🔄 รีเซ็ตพอร์ตจำลอง (Paper Account) เรียบร้อยแล้ว",
-    "[02:58:31] ⚙️ อัปเดตการตั้งค่าบอท: BTC_THB | Leverage: 1x | TF: 1d | สถานะ: เปิดทำงาน 🟢",
-    "[02:58:02] ⚙️ อัปเดตการตั้งค่าบอท: BTC_THB | Leverage: 1x | TF: 1d | สถานะ: เปิดทำงาน 🟢",
-    "[02:57:10] ⚙️ อัปเดตการตั้งค่าบอท: BTC_THB | Leverage: 1x | TF: 1d | สถานะ: เปิดทำงาน 🟢",
-    "[02:57:10] 🔑 ซิงก์ Bitkub API Key ขึ้นเซิร์ฟเวอร์เรียบร้อย",
-    "[02:42:22] ⚙️ อัปเดตการตั้งค่าบอท: BTC_THB | Leverage: 1x | TF: 1d | สถานะ: เปิดทำงาน 🟢",
-    "[02:40:35] ⚙️ อัปเดตการตั้งค่าบอท: BTC_THB | Leverage: 1x | TF: 1d | สถานะ: หยุด 🔴",
-    "[02:40:35] 🔑 ซิงก์ Bitkub API Key ขึ้นเซิร์ฟเวอร์เรียบร้อย",
-    "[02:39:31] ⚙️ อัปเดตการตั้งค่าบอท: BTC_THB | Leverage: 1x | TF: 1d | สถานะ: หยุด 🔴",
-    "[02:39:31] 🔑 ซิงก์ Bitkub API Key ขึ้นเซิร์ฟเวอร์เรียบร้อย",
-    "[02:39:25] ⚙️ อัปเดตการตั้งค่าบอท: BTC_THB | Leverage: 1x | TF: 1d | สถานะ: หยุด 🔴",
-    "[02:39:25] 🔑 ซิงก์ Bitkub API Key ขึ้นเซิร์ฟเวอร์เรียบร้อย",
-    "[02:39:20] ⚙️ อัปเดตการตั้งค่าบอท: BTC_THB | Leverage: 1x | TF: 1d | สถานะ: หยุด 🔴",
-    "[02:39:18] ⚙️ อัปเดตการตั้งค่าบอท: BTC_THB | Leverage: 1x | TF: 1d | สถานะ: เปิดทำงาน 🟢",
-    "[02:36:55] ⚙️ อัปเดตการตั้งค่าบอท: BTC_THB | Leverage: 1x | TF: 1d | สถานะ: หยุด 🔴",
-    "[02:36:55] 🔑 ซิงก์ Bitkub API Key ขึ้นเซิร์ฟเวอร์เรียบร้อย",
-    "[02:30:02] ⚙️ อัปเดตการตั้งค่าบอท: BTC_THB | Leverage: 1x | TF: 1d | สถานะ: หยุด 🔴",
-    "[02:25:38] ⚙️ อัปเดตการตั้งค่าบอท: IOST_THB | Leverage: 1x | TF: 1d | สถานะ: หยุด 🔴",
-    "[02:25:32] ⚙️ อัปเดตการตั้งค่าบอท: ETH_THB | Leverage: 1x | TF: 1d | สถานะ: หยุด 🔴",
-    "[02:14:26] 🚀 CDC Action Zone 24/7 Cloud Server initialized and ready."
+    "[03:00:00] 🚀 CDC Action Zone V2 SET Thai Stock Bot Server initialized and ready."
   ],
   "liveApiKeys": {
-    "apiKey": "3bb535112edbfb539d1c69ca024b35bb36be965ac048f1e2af3f97cc1fb452af",
-    "apiSecret": "c87a44f5685b4a1f81ae8ca8a179a5bf72361fe254cc4deda927f31f1098bc72r16cIJsBAcB9BATy61XyjhbBsQLy",
-    "isTestnet": false
+    "apiKey": "",
+    "apiSecret": "",
+    "isTestnet": true
   }
 }

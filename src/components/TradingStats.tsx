@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { getStoredTradeHistory } from '../lib/botStore';
 import { ExecutedTrade } from '../types';
-import { formatCryptoPrice } from '../lib/bitkubApi';
+import { formatStockPrice } from '../lib/stockApi';
 import {
   AreaChart,
   Area,
@@ -19,7 +19,7 @@ import {
   TrendingDown,
   Award,
   Calendar,
-  Coins,
+  Layers,
   ArrowUpRight,
   ArrowDownRight,
   Filter,
@@ -187,10 +187,10 @@ export const TradingStats: React.FC<TradingStatsProps> = ({ trades: propTrades, 
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
-          {/* Coin Symbol Filter */}
+          {/* Stock Symbol Filter */}
           <div className="space-y-1">
             <label className="text-slate-400 font-medium flex items-center space-x-1.5 mb-1">
-              <Coins className="w-3.5 h-3.5 text-slate-500" />
+              <Layers className="w-3.5 h-3.5 text-slate-500" />
               <span>เลือกหุ้น (SET)</span>
             </label>
             <select
@@ -238,7 +238,7 @@ export const TradingStats: React.FC<TradingStatsProps> = ({ trades: propTrades, 
             >
               <option value="ALL">⚙️ ทุกโหมด (All Modes)</option>
               <option value="PAPER">🟢 Paper Trade (จำลอง)</option>
-              <option value="BITKUB_LIVE">⚡ Live Trade (Settrade)</option>
+              <option value="SETTRADE_LIVE">⚡ Live Trade (Settrade)</option>
             </select>
           </div>
         </div>

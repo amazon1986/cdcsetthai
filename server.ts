@@ -1,7 +1,6 @@
 import express from 'express';
 import path from 'path';
 import fs from 'fs';
-import crypto from 'crypto';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import cors from 'cors';
@@ -9,25 +8,29 @@ import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
 import { BotConfig, PaperAccount, PaperPosition, ExecutedTrade, KlineData, Timeframe } from './src/types';
 import { calculateCDCActionZone, getCrossoverInfo } from './src/lib/cdcIndicator';
-import { POPULAR_PAIRS, toBitkubSymbol } from './src/lib/bitkubApi';
+import { POPULAR_STOCKS, toStockSymbol } from './src/lib/stockApi';
 
 const app = express();
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
 // ==================== SECURITY MIDDLEWARE ====================
 
-app.use(helmet({
-  contentSecurityPolicy: false,
-  crossOriginEmbedderPolicy: false,
-  crossOriginResourcePolicy: false,
-}));
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: false,
+    crossOriginResourcePolicy: false,
+  })
+);
 
-app.use(cors({
-  origin: true,
-  methods: ['GET', 'POST'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: false,
-}));
+app.use(
+  cors({
+    origin: true,
+    methods: ['GET', 'POST'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: false,
+  })
+);
 
 const generalLimiter = rateLimit({
   windowMs: 1 * 60 * 1000,
@@ -61,6 +64,8 @@ interface ServerState {
   liveApiKeys?: {
     apiKey: string;
     apiSecret: string;
+    appCode?: string;
+    brokerId?: string;
     isTestnet?: boolean;
   };
 }
@@ -100,7 +105,7 @@ const DEFAULT_SERVER_STATE: ServerState = {
   },
   tradeHistory: [],
   botLogs: [
-    `[${new Date().toLocaleTimeString('th-TH')}] 🚀 CDC Action Zone 24/7 Cloud Stock Bot Server initialized and ready.`,
+    `[${new Date().toLocaleTimeString('th-TH')}] 🚀 CDC Action Zone V2 Cloud Stock Bot Server initialized and ready.`,
   ],
 };
 
@@ -114,16 +119,21 @@ function loadServerState() {
     if (fs.existsSync(STATE_FILE)) {
       const raw = fs.readFileSync(STATE_FILE, 'utf-8');
       const parsed = JSON.parse(raw);
-      
+
       let cleanSymbol = parsed.botConfig?.symbol || 'PTT';
-      if (cleanSymbol.includes('_') || cleanSymbol.includes('/') || ['BTC', 'ETH', 'USDT', 'KUB', 'ADA'].includes(cleanSymbol.toUpperCase())) {
+      if (
+        cleanSymbol.includes('_') ||
+        cleanSymbol.includes('/') ||
+        ['BTC', 'ETH', 'USDT', 'KUB', 'ADA', 'XRP', 'DOGE', 'SOL', 'BNB'].includes(cleanSymbol.toUpperCase())
+      ) {
         cleanSymbol = 'PTT';
       }
       if (parsed.botConfig) {
         parsed.botConfig.symbol = cleanSymbol;
+        parsed.botConfig.mode = parsed.botConfig.mode === 'SETTRADE_LIVE' ? 'SETTRADE_LIVE' : 'PAPER';
       }
 
-      if (parsed.paperAccount && (parsed.paperAccount.usdtBalance === 1000 || parsed.paperAccount.usdtBalance === 30000)) {
+      if (parsed.paperAccount && (parsed.paperAccount.usdtBalance === 1000 || parsed.paperAccount.usdtBalance === 30000 || !parsed.paperAccount.usdtBalance)) {
         parsed.paperAccount.usdtBalance = 100000;
         parsed.paperAccount.initialUsdtBalance = 100000;
       }
@@ -171,9 +181,6 @@ loadServerState();
 // ==================== INPUT VALIDATION HELPERS ====================
 
 const VALID_SYMBOL_REGEX = /^[A-Z0-9_]{2,30}$/;
-const VALID_SIDE_VALUES = ['BUY', 'SELL'];
-const VALID_ORDER_TYPES = ['MARKET', 'LIMIT'];
-const VALID_INTERVALS = ['1m', '3m', '5m', '15m', '30m', '1h', '2h', '4h', '6h', '8h', '12h', '1d', '3d', '1w', '1M'];
 
 function sanitizeSymbol(symbol: string | undefined): string | null {
   if (!symbol) return null;
@@ -187,40 +194,6 @@ function sanitizeErrorMessage(error: any): string {
   }
   const msg = error?.message || 'Unknown error';
   return msg.replace(/\b[A-Z]:\\[^\s]+/gi, '[path]').substring(0, 200);
-}
-
-function buildBitkubSignature(timestamp: number, method: string, path: string, bodyString: string, secretKey: string): string {
-  const payload = `${timestamp}${method.toUpperCase()}${path}${bodyString}`;
-  return crypto.createHmac('sha256', secretKey).update(payload).digest('hex');
-}
-
-// Time sync helper with Bitkub server
-let bitkubTimeOffset = 0;
-const lastTimeSync: Record<string, number> = {};
-
-async function getBitkubTimestamp(): Promise<number> {
-  const now = Date.now();
-  const lastSync = lastTimeSync['bitkub'] || 0;
-
-  if (now - lastSync > 60 * 1000) {
-    try {
-      const start = Date.now();
-      const res = await fetch('https://api.bitkub.com/api/v3/servertime');
-      if (res.ok) {
-        const text = await res.text();
-        const serverTimeSec = parseInt(text, 10);
-        const serverTimeMs = serverTimeSec < 99999999999 ? serverTimeSec * 1000 : serverTimeSec;
-        const end = Date.now();
-        const latency = Math.floor((end - start) / 2);
-        bitkubTimeOffset = serverTimeMs + latency - end;
-        lastTimeSync['bitkub'] = end;
-      }
-    } catch (e) {
-      console.warn('Failed to sync time with Bitkub:', e);
-    }
-  }
-
-  return now + bitkubTimeOffset;
 }
 
 // ==================== SERVER-SIDE BOT SIZING & TRADING ENGINE ====================
@@ -240,7 +213,7 @@ function calculateOrderSize(config: BotConfig, account: PaperAccount): number {
   } else if (mode === 'PERCENT_EQUITY') {
     targetUsdt = (totalEquity * (config.balancePercent || 20)) / 100;
   } else {
-    targetUsdt = config.tradeAmountUsdt || 100;
+    targetUsdt = config.tradeAmountUsdt || 10000;
   }
 
   return Math.min(targetUsdt, account.usdtBalance);
@@ -248,39 +221,56 @@ function calculateOrderSize(config: BotConfig, account: PaperAccount): number {
 
 async function fetchKlinesDirect(symbol: string, interval: string, limit = 300): Promise<KlineData[]> {
   try {
-    let cleanSymbol = symbol;
-    // Auto convert crypto symbols left in bot state to PTT
-    if (cleanSymbol.includes('_') || cleanSymbol.includes('/')) {
-      const parts = cleanSymbol.split(/[_/]/);
-      cleanSymbol = parts[0] === 'USDT' || parts[0] === 'BTC' || parts[0] === 'ETH' || parts[0] === 'KUB' ? 'PTT' : parts[0];
-    }
-    const yahooSymbol = cleanSymbol.endsWith('.BK') ? cleanSymbol.toUpperCase() : `${cleanSymbol.toUpperCase()}.BK`;
+    let cleanSymbol = symbol.toUpperCase().replace(/[^A-Z0-9]/g, '') || 'PTT';
+    const yahooSymbol = cleanSymbol.endsWith('.BK') ? cleanSymbol : `${cleanSymbol}.BK`;
 
     let yahooInterval = '1d';
     let step = 86400;
     switch (interval) {
-      case '1m': yahooInterval = '1m'; step = 60; break;
-      case '5m': yahooInterval = '5m'; step = 300; break;
-      case '15m': yahooInterval = '15m'; step = 900; break;
-      case '1h': yahooInterval = '60m'; step = 3600; break;
-      case '4h': yahooInterval = '60m'; step = 14400; break; // Fallback to 1h
-      case '1d': yahooInterval = '1d'; step = 86400; break;
-      case '1w': yahooInterval = '1wk'; step = 604800; break;
+      case '1m':
+        yahooInterval = '1m';
+        step = 60;
+        break;
+      case '5m':
+        yahooInterval = '5m';
+        step = 300;
+        break;
+      case '15m':
+        yahooInterval = '15m';
+        step = 900;
+        break;
+      case '1h':
+        yahooInterval = '60m';
+        step = 3600;
+        break;
+      case '4h':
+        yahooInterval = '60m';
+        step = 14400;
+        break;
+      case '1d':
+        yahooInterval = '1d';
+        step = 86400;
+        break;
+      case '1w':
+        yahooInterval = '1wk';
+        step = 604800;
+        break;
     }
     const to = Math.floor(Date.now() / 1000);
-    const from = to - (limit * step);
+    const from = to - limit * step;
     const url = `https://query1.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?interval=${yahooInterval}&period1=${from}&period2=${to}`;
-    
+
     const res = await fetch(url, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-      }
+        'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      },
     });
     if (!res.ok) return [];
     const data = await res.json();
     const result = data.chart?.result?.[0];
     if (!result || !result.timestamp) return [];
-    
+
     const quote = result.indicators?.quote?.[0];
     if (!quote) return [];
 
@@ -323,7 +313,7 @@ async function runServerBotCycle() {
   try {
     const dirMode = config.directionMode ?? 'LONG_ONLY';
     const isMultiScan = config.scanMode === 'MULTI_SCAN';
-    const symbolsToEvaluate = isMultiScan ? POPULAR_PAIRS.slice(0, 15) : [config.symbol];
+    const symbolsToEvaluate = isMultiScan ? POPULAR_STOCKS.slice(0, 15) : [config.symbol];
 
     for (const sym of symbolsToEvaluate) {
       if (!serverState.botConfig.isActive) break;
@@ -344,22 +334,30 @@ async function runServerBotCycle() {
         const posLev = pos.leverage || 1;
         const margin = pos.marginUsdt || pos.usdtInvested;
 
-        const pnlPercent = pos.side === 'SHORT'
-          ? ((pos.entryPrice - currentPrice) / pos.entryPrice) * 100 * posLev
-          : ((currentPrice - pos.entryPrice) / pos.entryPrice) * 100 * posLev;
+        const pnlPercent =
+          pos.side === 'SHORT'
+            ? ((pos.entryPrice - currentPrice) / pos.entryPrice) * 100 * posLev
+            : ((currentPrice - pos.entryPrice) / pos.entryPrice) * 100 * posLev;
         const pnlUsdt = (margin * pnlPercent) / 100;
 
         let exitReason = '';
-        if (pnlPercent <= -90 || (pos.liquidationPrice && (pos.side === 'LONG' ? currentPrice <= pos.liquidationPrice : currentPrice >= pos.liquidationPrice))) {
+        if (
+          pnlPercent <= -90 ||
+          (pos.liquidationPrice &&
+            (pos.side === 'LONG'
+              ? currentPrice <= pos.liquidationPrice
+              : currentPrice >= pos.liquidationPrice))
+        ) {
           exitReason = '⚡ Auto Liquidation (Margin Call -90%)';
         } else if (config.stopLossPercent > 0 && pnlPercent <= -config.stopLossPercent) {
           exitReason = `Stop Loss (-${config.stopLossPercent}%)`;
         } else if (config.takeProfitPercent > 0 && pnlPercent >= config.takeProfitPercent) {
           exitReason = `Take Profit (+${config.takeProfitPercent}%)`;
         } else {
-          const isExitSignal = pos.side === 'SHORT'
-            ? config.buyOnSignal.includes(latestCandle.zone as any)
-            : config.sellOnSignal.includes(latestCandle.zone as any);
+          const isExitSignal =
+            pos.side === 'SHORT'
+              ? config.buyOnSignal.includes(latestCandle.zone as any)
+              : config.sellOnSignal.includes(latestCandle.zone as any);
           if (isExitSignal) {
             exitReason = `CDC Exit Signal ${latestCandle.colorNameTh}`;
           }
@@ -398,7 +396,9 @@ async function runServerBotCycle() {
             serverState.tradeHistory = serverState.tradeHistory.slice(0, 500);
           }
 
-          addServerLog(`🛑 [SERVER 24/7 ${exitReason.includes('Liquidation') ? 'LIQUIDATE' : 'AUTO CLOSE'} ${pos.side} ${posLev}x] ${pos.symbol} @ ฿${currentPrice} | PnL: ${pnlUsdt >= 0 ? '+' : ''}฿${pnlUsdt.toFixed(2)} (${pnlPercent.toFixed(2)}%) | เหตุผล: ${exitReason}`);
+          addServerLog(
+            `🛑 [SERVER 24/7 ${exitReason.includes('Liquidation') ? 'LIQUIDATE' : 'AUTO CLOSE'} ${pos.side}] ${pos.symbol} @ ฿${currentPrice} | PnL: ${pnlUsdt >= 0 ? '+' : ''}฿${pnlUsdt.toFixed(2)} (${pnlPercent.toFixed(2)}%) | เหตุผล: ${exitReason}`
+          );
           saveServerState();
         } else {
           pos.currentPnlUsdt = Number(pnlUsdt.toFixed(2));
@@ -414,16 +414,18 @@ async function runServerBotCycle() {
       }
 
       const crossInfo = getCrossoverInfo(cdcCandles);
-      const isBuySignal = crossInfo.isFreshGoldenCross && (
-        (config.buyOnSignal.includes('BLUE') && latestCandle.zone === 'BLUE') ||
-        (config.buyOnSignal.includes('GREEN') && latestCandle.zone === 'GREEN') ||
-        (config.buyOnSignal.includes('BLUE') && config.buyOnSignal.includes('GREEN') && (latestCandle.zone === 'BLUE' || latestCandle.zone === 'GREEN'))
-      );
+      const isBuySignal =
+        crossInfo.isFreshGoldenCross &&
+        ((config.buyOnSignal.includes('BLUE') && latestCandle.zone === 'BLUE') ||
+          (config.buyOnSignal.includes('GREEN') && latestCandle.zone === 'GREEN') ||
+          (config.buyOnSignal.includes('BLUE') &&
+            config.buyOnSignal.includes('GREEN') &&
+            (latestCandle.zone === 'BLUE' || latestCandle.zone === 'GREEN')));
 
-      const isSellSignal = crossInfo.isFreshDeadCross && (
-        (config.sellOnSignal.includes('RED') && latestCandle.zone === 'RED') ||
-        (config.sellOnSignal.includes('YELLOW') && latestCandle.zone === 'YELLOW')
-      );
+      const isSellSignal =
+        crossInfo.isFreshDeadCross &&
+        ((config.sellOnSignal.includes('RED') && latestCandle.zone === 'RED') ||
+          (config.sellOnSignal.includes('YELLOW') && latestCandle.zone === 'YELLOW'));
 
       let targetSide: 'LONG' | 'SHORT' | null = null;
       if ((dirMode === 'LONG_ONLY' || dirMode === 'BOTH') && isBuySignal) {
@@ -437,10 +439,9 @@ async function runServerBotCycle() {
         const lev = Math.min(Math.max(1, config.leverage || 1), 10);
         if (tradeUsdt >= 10 && serverState.paperAccount.usdtBalance >= tradeUsdt) {
           const notionalValue = tradeUsdt * lev;
-          const coinAmount = notionalValue / currentPrice;
-          const liqPrice = targetSide === 'LONG'
-            ? currentPrice * (1 - 0.9 / lev)
-            : currentPrice * (1 + 0.9 / lev);
+          const sharesAmount = Math.floor(notionalValue / currentPrice);
+          const liqPrice =
+            targetSide === 'LONG' ? currentPrice * (1 - 0.9 / lev) : currentPrice * (1 + 0.9 / lev);
 
           serverState.paperAccount.usdtBalance -= tradeUsdt;
 
@@ -448,11 +449,11 @@ async function runServerBotCycle() {
             symbol: sym,
             side: targetSide,
             entryPrice: currentPrice,
-            amount: coinAmount,
+            amount: sharesAmount,
             usdtInvested: tradeUsdt,
             marginUsdt: tradeUsdt,
             leverage: lev,
-            liquidationPrice: Number(liqPrice.toFixed(6)),
+            liquidationPrice: Number(liqPrice.toFixed(2)),
             entryTime: Date.now(),
             currentPnlUsdt: 0,
             currentPnlPercent: 0,
@@ -466,16 +467,18 @@ async function runServerBotCycle() {
             timeframe: config.timeframe,
             side: targetSide === 'LONG' ? 'BUY' : 'SELL',
             price: currentPrice,
-            amount: coinAmount,
+            amount: sharesAmount,
             usdtValue: notionalValue,
             leverage: lev,
-            reason: `[Cloud 24/7 Entry ${lev}x] CDC ${latestCandle.colorNameTh} (${targetSide})`,
+            reason: `[Cloud 24/7 Entry] CDC ${latestCandle.colorNameTh} (${targetSide})`,
             timestamp: Date.now(),
             mode: config.mode,
           };
 
           serverState.tradeHistory.unshift(trade);
-          addServerLog(`🚀 [SERVER 24/7 OPEN ${targetSide} ${lev}x] ${sym} @ ฿${currentPrice} | ทุน ฿${tradeUsdt.toFixed(2)} THB (มูลค่าสัญญา ฿${notionalValue.toFixed(2)}) | สัญญาณ ${latestCandle.colorNameTh}`);
+          addServerLog(
+            `🚀 [SERVER 24/7 OPEN ${targetSide}] ${sym} @ ฿${currentPrice} | ทุน ฿${tradeUsdt.toFixed(2)} บาท (${sharesAmount.toLocaleString()} หุ้น) | สัญญาณ ${latestCandle.colorNameTh}`
+          );
           saveServerState();
         }
       }
@@ -490,7 +493,7 @@ async function runServerBotCycle() {
 // Start continuous 24/7 background execution loop every 10 seconds
 setInterval(runServerBotCycle, 10000);
 
-// Self-ping heartbeat every 10 minutes to prevent Render Free Tier from sleeping
+// Self-ping heartbeat every 10 minutes to prevent server sleeping
 const RENDER_APP_URL = process.env.RENDER_EXTERNAL_URL;
 if (RENDER_APP_URL) {
   setInterval(async () => {
@@ -529,7 +532,9 @@ app.post('/api/bot/config', (req, res) => {
       ...updated,
     };
     saveServerState();
-    addServerLog(`⚙️ อัปเดตการตั้งค่าบอท: ${serverState.botConfig.symbol} | Leverage: ${serverState.botConfig.leverage || 1}x | TF: ${serverState.botConfig.timeframe} | สถานะ: ${serverState.botConfig.isActive ? 'เปิดทำงาน 🟢' : 'หยุด 🔴'}`);
+    addServerLog(
+      `⚙️ อัปเดตการตั้งค่าบอท: ${serverState.botConfig.symbol} | TF: ${serverState.botConfig.timeframe} | สถานะ: ${serverState.botConfig.isActive ? 'เปิดทำงาน 🟢' : 'หยุด 🔴'}`
+    );
     return res.json({ success: true, botConfig: serverState.botConfig });
   } catch (err: any) {
     return res.status(500).json({ error: sanitizeErrorMessage(err) });
@@ -542,7 +547,11 @@ app.post('/api/bot/toggle', (req, res) => {
   const next = typeof isActive === 'boolean' ? isActive : !serverState.botConfig.isActive;
   serverState.botConfig.isActive = next;
   saveServerState();
-  addServerLog(next ? '🟢 [CLOUD 24/7 BOT ACTIVATED] เริ่มระบบเทรดอัตโนมัติบนคลาวด์' : '🔴 [CLOUD BOT STOPPED] หยุดระบบเทรดอัตโนมัติ');
+  addServerLog(
+    next
+      ? '🟢 [CLOUD 24/7 STOCK BOT ACTIVATED] เริ่มระบบเทรดหุ้นไทยอัตโนมัติบนคลาวด์'
+      : '🔴 [CLOUD STOCK BOT STOPPED] หยุดระบบเทรดอัตโนมัติ'
+  );
   return res.json({ success: true, isActive: next });
 });
 
@@ -560,10 +569,9 @@ app.post('/api/bot/manual-order', (req, res) => {
 
     const lev = Math.min(Math.max(1, serverState.botConfig.leverage || 1), 10);
     const notionalValue = amountUsdt * lev;
-    const coinAmount = notionalValue / currentPrice;
-    const liqPrice = side === 'LONG'
-      ? currentPrice * (1 - 0.9 / lev)
-      : currentPrice * (1 + 0.9 / lev);
+    const sharesAmount = Math.floor(notionalValue / currentPrice);
+    const liqPrice =
+      side === 'LONG' ? currentPrice * (1 - 0.9 / lev) : currentPrice * (1 + 0.9 / lev);
 
     serverState.paperAccount.usdtBalance -= amountUsdt;
 
@@ -571,11 +579,11 @@ app.post('/api/bot/manual-order', (req, res) => {
       symbol,
       side,
       entryPrice: currentPrice,
-      amount: coinAmount,
+      amount: sharesAmount,
       usdtInvested: amountUsdt,
       marginUsdt: amountUsdt,
       leverage: lev,
-      liquidationPrice: Number(liqPrice.toFixed(6)),
+      liquidationPrice: Number(liqPrice.toFixed(2)),
       entryTime: Date.now(),
       currentPnlUsdt: 0,
       currentPnlPercent: 0,
@@ -589,16 +597,18 @@ app.post('/api/bot/manual-order', (req, res) => {
       timeframe: serverState.botConfig.timeframe,
       side: side === 'LONG' ? 'BUY' : 'SELL',
       price: currentPrice,
-      amount: coinAmount,
+      amount: sharesAmount,
       usdtValue: notionalValue,
       leverage: lev,
-      reason: `[Manual Order ${lev}x] เปิด ${side} ด้วยตนเอง`,
+      reason: `[Manual Order] เปิด ${side} ${sharesAmount.toLocaleString()} หุ้น ด้วยตนเอง`,
       timestamp: Date.now(),
       mode: serverState.botConfig.mode,
     };
 
     serverState.tradeHistory.unshift(trade);
-    addServerLog(`✋ [MANUAL ORDER ${lev}x] เปิด ${side} ${symbol} @ ฿${currentPrice} | ทุน ฿${amountUsdt} THB (มูลค่าสัญญา ฿${notionalValue.toFixed(2)})`);
+    addServerLog(
+      `✋ [MANUAL ORDER] เปิด ${side} ${symbol} @ ฿${currentPrice} | ทุน ฿${amountUsdt} บาท (${sharesAmount.toLocaleString()} หุ้น)`
+    );
     saveServerState();
     return res.json({ success: true });
   } catch (err: any) {
@@ -617,8 +627,7 @@ app.post('/api/bot/close-position', async (req, res) => {
 
     const pos = serverState.paperAccount.activePositions[idx];
 
-    // Verification: If currentPrice is missing, zero, or has wild ratio error (>50x difference from entryPrice), fetch exact market price for this symbol
-    const priceRatio = (currentPrice && pos.entryPrice) ? (currentPrice / pos.entryPrice) : 0;
+    const priceRatio = currentPrice && pos.entryPrice ? currentPrice / pos.entryPrice : 0;
     if (!currentPrice || currentPrice <= 0 || priceRatio > 50 || priceRatio < 0.02) {
       try {
         const liveKlines = await fetchKlinesDirect(pos.symbol, '1m', 1);
@@ -632,9 +641,10 @@ app.post('/api/bot/close-position', async (req, res) => {
 
     const posLev = pos.leverage || 1;
     const margin = pos.marginUsdt || pos.usdtInvested;
-    const pnlPercent = pos.side === 'SHORT'
-      ? ((pos.entryPrice - currentPrice) / pos.entryPrice) * 100 * posLev
-      : ((currentPrice - pos.entryPrice) / pos.entryPrice) * 100 * posLev;
+    const pnlPercent =
+      pos.side === 'SHORT'
+        ? ((pos.entryPrice - currentPrice) / pos.entryPrice) * 100 * posLev
+        : ((currentPrice - pos.entryPrice) / pos.entryPrice) * 100 * posLev;
     const pnlUsdt = (margin * pnlPercent) / 100;
     const returnUsdt = Math.max(0, margin + pnlUsdt);
 
@@ -662,7 +672,9 @@ app.post('/api/bot/close-position', async (req, res) => {
     };
 
     serverState.tradeHistory.unshift(trade);
-    addServerLog(`✋ [MANUAL CLOSE ${posLev}x] ปิดสัญญา ${pos.symbol} @ ฿${currentPrice} | PnL: ${pnlUsdt >= 0 ? '+' : ''}฿${pnlUsdt.toFixed(2)} (${pnlPercent.toFixed(2)}%)`);
+    addServerLog(
+      `✋ [MANUAL CLOSE] ปิดสถานะ ${pos.symbol} @ ฿${currentPrice} | PnL: ${pnlUsdt >= 0 ? '+' : ''}฿${pnlUsdt.toFixed(2)} (${pnlPercent.toFixed(2)}%)`
+    );
     saveServerState();
     return res.json({ success: true });
   } catch (err: any) {
@@ -680,8 +692,8 @@ app.post('/api/bot/clear-logs', (req, res) => {
 // 7. Reset Paper Account
 app.post('/api/bot/reset-paper', (req, res) => {
   serverState.paperAccount = {
-    usdtBalance: 10000,
-    initialUsdtBalance: 10000,
+    usdtBalance: 100000,
+    initialUsdtBalance: 100000,
     activePositions: [],
     totalTrades: 0,
     winningTrades: 0,
@@ -689,7 +701,7 @@ app.post('/api/bot/reset-paper', (req, res) => {
     totalProfitUsdt: 0,
   };
   serverState.tradeHistory = [];
-  addServerLog('🔄 รีเซ็ตพอร์ตจำลอง (Paper Account) เรียบร้อยแล้ว');
+  addServerLog('🔄 รีเซ็ตพอร์ตจำลอง (Paper Account) เป็น ฿100,000 บาท เรียบร้อยแล้ว');
   saveServerState();
   return res.json({ success: true });
 });
@@ -698,47 +710,43 @@ app.post('/api/bot/reset-paper', (req, res) => {
 app.get('/api/health', (req, res) => {
   return res.json({
     status: 'ok',
+    system: 'CDC Action Zone V2 SET Thai Stock Bot',
     uptime: process.uptime(),
     isBotActive: serverState.botConfig.isActive,
     time: new Date().toISOString(),
   });
 });
 
-// ==================== BITKUB PROXY ENDPOINTS ====================
+// ==================== THAI STOCK MARKET DATA & BROKER ENDPOINTS ====================
 
-// ==================== STOCK PORTAL ENDPOINTS (MOCKED & YAHOO FEED) ====================
-
-app.get('/api/bitkub/klines', async (req, res) => {
+const handleKlines = async (req: express.Request, res: express.Response) => {
   try {
     let symbol = (req.query.symbol as string) || 'PTT';
-    // Auto convert crypto symbols left in bot state to PTT
-    if (symbol.includes('_') || symbol.includes('/')) {
-      const parts = symbol.split(/[_/]/);
-      symbol = parts[0] === 'USDT' || parts[0] === 'BTC' || parts[0] === 'ETH' || parts[0] === 'KUB' ? 'PTT' : parts[0];
-    }
+    symbol = symbol.toUpperCase().replace(/[^A-Z0-9]/g, '') || 'PTT';
     const resolution = String(req.query.resolution || '1D');
     const from = parseInt(String(req.query.from || '0'), 10);
     const to = parseInt(String(req.query.to || '0'), 10);
 
-    const yahooSymbol = symbol.endsWith('.BK') ? symbol.toUpperCase() : `${symbol.toUpperCase()}.BK`;
+    const yahooSymbol = symbol.endsWith('.BK') ? symbol : `${symbol}.BK`;
     let interval = '1d';
     if (resolution === '1') interval = '1m';
     else if (resolution === '5') interval = '5m';
     else if (resolution === '15') interval = '15m';
     else if (resolution === '60') interval = '60m';
-    else if (resolution === '240') interval = '60m'; // yahoo limits, fallback to 1h
+    else if (resolution === '240') interval = '60m';
     else if (resolution === '1D' || resolution === 'D') interval = '1d';
     else if (resolution === '1W' || resolution === 'W') interval = '1wk';
 
     const url = `https://query1.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?interval=${interval}&period1=${from}&period2=${to}`;
     const response = await fetch(url, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-      }
+        'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      },
     });
 
     if (!response.ok) {
-      return res.status(response.status).json({ s: 'error', error: 'Yahoo API request failed' });
+      return res.status(response.status).json({ s: 'error', error: 'Stock API request failed' });
     }
 
     const data = await response.json();
@@ -779,24 +787,29 @@ app.get('/api/bitkub/klines', async (req, res) => {
 
     return res.json({
       s: 'ok',
-      t, o, h, l, c, v
+      t,
+      o,
+      h,
+      l,
+      c,
+      v,
     });
   } catch (error: any) {
     return res.status(500).json({ error: sanitizeErrorMessage(error) });
   }
-});
+};
 
-app.get('/api/bitkub/ticker', async (req, res) => {
+app.get('/api/stock/klines', handleKlines);
+
+const handleTicker = async (req: express.Request, res: express.Response) => {
   try {
-    const popularStocks = [
-      'PTT', 'CPALL', 'AOT', 'DELTA', 'ADVANC', 'BDMS', 'KBANK', 'SCB', 'GULF', 'PTTEP', 'TRUE', 'KTB', 'CPF', 'HMPRO', 'SCC'
-    ];
-    const symbolsQuery = popularStocks.map(s => `${s}.BK`).join(',');
+    const popularStocks = POPULAR_STOCKS;
+    const symbolsQuery = popularStocks.map((s) => `${s}.BK`).join(',');
     const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbolsQuery}`;
     const response = await fetch(url, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-      }
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      },
     });
 
     const tickerResult: Record<string, any> = {};
@@ -817,13 +830,13 @@ app.get('/api/bitkub/ticker', async (req, res) => {
           lowestAsk: last,
           highestBid: last,
           baseVolume: volume,
-          quoteVolume: volume * last
+          quoteVolume: volume * last,
         };
       });
     }
 
     // Fallback/fill missing stocks
-    popularStocks.forEach(s => {
+    popularStocks.forEach((s) => {
       const key = `THB_${s}`;
       if (!tickerResult[key]) {
         tickerResult[key] = {
@@ -832,7 +845,7 @@ app.get('/api/bitkub/ticker', async (req, res) => {
           lowestAsk: 40.0,
           highestBid: 40.0,
           baseVolume: 500000,
-          quoteVolume: 20000000
+          quoteVolume: 20000000,
         };
       }
     });
@@ -841,9 +854,11 @@ app.get('/api/bitkub/ticker', async (req, res) => {
   } catch (error: any) {
     return res.status(500).json({ error: sanitizeErrorMessage(error) });
   }
-});
+};
 
-app.get('/api/bitkub/depth', async (req, res) => {
+app.get('/api/stock/ticker', handleTicker);
+
+const handleDepth = async (req: express.Request, res: express.Response) => {
   try {
     const rawSymbol = (req.query.symbol as string) || 'PTT';
     let symbol = rawSymbol;
@@ -851,19 +866,23 @@ app.get('/api/bitkub/depth', async (req, res) => {
       const parts = symbol.split('_');
       symbol = parts[1] === 'THB' ? parts[0] : parts[1];
     }
-    
-    const yahooSymbol = symbol.endsWith('.BK') ? symbol.toUpperCase() : `${symbol.toUpperCase()}.BK`;
-    let lastPrice = 50.0;
+
+    const clean = symbol.toUpperCase().replace(/[^A-Z0-9]/g, '') || 'PTT';
+    const yahooSymbol = clean.endsWith('.BK') ? clean : `${clean}.BK`;
+    let lastPrice = 35.0;
     try {
-      const response = await fetch(`https://query1.finance.yahoo.com/v7/finance/quote?symbols=${yahooSymbol}`, {
-        headers: { 'User-Agent': 'Mozilla/5.0' }
-      });
+      const response = await fetch(
+        `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${yahooSymbol}`,
+        {
+          headers: { 'User-Agent': 'Mozilla/5.0' },
+        }
+      );
       if (response.ok) {
         const data = await response.json();
-        lastPrice = data.quoteResponse?.result?.[0]?.regularMarketPrice || 50.0;
+        lastPrice = data.quoteResponse?.result?.[0]?.regularMarketPrice || 35.0;
       }
     } catch (e) {
-      console.warn('Depth price fetch failed, using fallback 50.0');
+      console.warn('Depth price fetch fallback');
     }
 
     const bids: [string, string][] = [];
@@ -874,15 +893,15 @@ app.get('/api/bitkub/depth', async (req, res) => {
     if (lastPrice < 2) tickSize = 0.01;
     else if (lastPrice < 5) tickSize = 0.02;
     else if (lastPrice < 10) tickSize = 0.05;
-    else if (lastPrice < 25) tickSize = 0.10;
+    else if (lastPrice < 25) tickSize = 0.1;
     else if (lastPrice < 100) tickSize = 0.25;
-    else if (lastPrice < 200) tickSize = 0.50;
-    else if (lastPrice < 400) tickSize = 1.00;
-    else tickSize = 2.00;
+    else if (lastPrice < 200) tickSize = 0.5;
+    else if (lastPrice < 400) tickSize = 1.0;
+    else tickSize = 2.0;
 
     for (let i = 1; i <= limit; i++) {
-      const bidPrice = (lastPrice - (i * tickSize)).toFixed(2);
-      const askPrice = (lastPrice + (i * tickSize)).toFixed(2);
+      const bidPrice = (lastPrice - i * tickSize).toFixed(2);
+      const askPrice = (lastPrice + i * tickSize).toFixed(2);
       const bidQty = (Math.floor(Math.random() * 500) * 100 + 100).toString();
       const askQty = (Math.floor(Math.random() * 500) * 100 + 100).toString();
       bids.push([bidPrice, bidQty]);
@@ -893,25 +912,26 @@ app.get('/api/bitkub/depth', async (req, res) => {
   } catch (error: any) {
     return res.status(500).json({ error: sanitizeErrorMessage(error) });
   }
-});
+};
 
-app.post('/api/bitkub/balances', async (req, res) => {
+app.get('/api/stock/depth', handleDepth);
+
+const handleBalances = async (req: express.Request, res: express.Response) => {
   try {
-    const { apiKey } = req.body;
     return res.json({
       success: true,
       canTrade: true,
-      accountType: 'SET_SANDBOX',
-      balances: [
-        { asset: 'THB', free: '1000000.00', locked: '0.00' }
-      ]
+      accountType: 'SETTRADE_OPEN_API',
+      balances: [{ asset: 'THB', free: '1000000.00', locked: '0.00' }],
     });
   } catch (error: any) {
     return res.status(500).json({ error: sanitizeErrorMessage(error) });
   }
-});
+};
 
-app.post('/api/bitkub/order', orderLimiter, async (req, res) => {
+app.post('/api/stock/balances', handleBalances);
+
+const handleOrder = async (req: express.Request, res: express.Response) => {
   try {
     const { apiKey, symbol, side, quantity, price, orderType = 'MARKET' } = req.body;
     return res.json({
@@ -922,32 +942,36 @@ app.post('/api/bitkub/order', orderLimiter, async (req, res) => {
         side: side,
         quantity: quantity,
         price: price || 'MARKET',
-        status: 'SUCCESS'
-      }
+        status: 'SUCCESS',
+      },
     });
   } catch (error: any) {
     return res.status(500).json({ error: sanitizeErrorMessage(error) });
   }
-});
+};
 
-app.post('/api/bitkub/keys', (req, res) => {
+app.post('/api/stock/order', orderLimiter, handleOrder);
+
+const handleKeys = (req: express.Request, res: express.Response) => {
   try {
-    const { apiKey, apiSecret } = req.body;
+    const { apiKey, apiSecret, appCode, brokerId } = req.body;
     if (!apiKey || !apiSecret) {
       return res.status(400).json({ error: 'กรุณากรอก App Key และ App Secret ให้ครบถ้วน' });
     }
-    serverState.liveApiKeys = { apiKey, apiSecret, isTestnet: true };
+    serverState.liveApiKeys = { apiKey, apiSecret, appCode, brokerId, isTestnet: true };
     saveServerState();
-    addServerLog(`🔑 ซิงก์ Settrade Sandbox API Key ขึ้นเซิร์ฟเวอร์เรียบร้อย`);
+    addServerLog(`🔑 ซิงก์ Settrade Open API Key ขึ้นเซิร์ฟเวอร์เรียบร้อย`);
     return res.json({ success: true });
   } catch (err: any) {
     return res.status(500).json({ error: sanitizeErrorMessage(err) });
   }
-});
+};
+
+app.post('/api/stock/keys', handleKeys);
 
 // ==================== AI ANALYST (GEMINI) ====================
 
-app.post('/api/ai/analyze', async (req, res) => {
+const handleAiAnalyze = async (req: express.Request, res: express.Response) => {
   try {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
@@ -956,28 +980,35 @@ app.post('/api/ai/analyze', async (req, res) => {
       });
     }
 
-    const { symbol, timeframe, currentPrice, zone, emaFast, emaSlow, recentCandles } = req.body;
+    const { symbol, timeframe, currentPrice, zone, emaFast, emaSlow, candles, recentCandles } = req.body;
+    const targetCandles = candles || recentCandles || [];
     const ai = new GoogleGenAI({ apiKey });
 
-    const recentCandlesSummary = Array.isArray(recentCandles)
-      ? recentCandles.slice(-10).map((c: any) => `Time: ${new Date(c.time * 1000).toISOString().slice(0, 16)} | Close: ${c.close} | Zone: ${c.zone} | Color: ${c.colorNameTh}`).join('\n')
+    const recentCandlesSummary = Array.isArray(targetCandles)
+      ? targetCandles
+          .slice(-10)
+          .map(
+            (c: any) =>
+              `Time: ${new Date(c.time * 1000).toISOString().slice(0, 16)} | Close: ${c.close} | Zone: ${c.zone} | Color: ${c.colorNameTh || ''}`
+          )
+          .join('\n')
       : 'ไม่มีข้อมูลแท่งเทียนย้อนหลัง';
 
-    const prompt = `คุณคือผู้เชี่ยวชาญด้าน Technical Analysis หุ้นไทย และเป็นศิษย์เอกของระบบ CDC Action Zone V2/V3 (สูตรลุงโฉลก - Chaloke.org)
+    const prompt = `คุณคือผู้เชี่ยวชาญด้าน Technical Analysis ตลาดหุ้นไทย (SET) และเป็นผู้เชี่ยวชาญระบบ CDC Action Zone V2 (สูตรลุงโฉลก - Chaloke.org)
 วิเคราะห์หุ้น ${symbol} บนไทม์เฟรม ${timeframe}:
-- ราคาปัจจุบัน: ฿${currentPrice}
+- ราคาปัจจุบัน: ฿${currentPrice} บาท
 - สถานะ CDC Zone: ${zone}
-- EMA 12: ฿${emaFast} | EMA 26: ฿${emaSlow}
+- Fast EMA (12): ฿${emaFast} | Slow EMA (26): ฿${emaSlow}
 ข้อมูลแท่งเทียน:
 ${recentCandlesSummary}
 
-ตอบเป็นรูปแบบ JSON:
+ตอบเป็นรูปแบบ JSON เท่านั้น:
 {
-  "summary": "สรุปการวิเคราะห์เชิงเทคนิค 2-3 ประโยค",
+  "summary": "สรุปการวิเคราะห์เชิงเทคนิคและแนวโน้มราคาหุ้น 2-3 ประโยค",
   "marketTrend": "BULLISH" หรือ "BEARISH" หรือ "SIDEWAYS",
   "keyLevels": { "support": [แนวรับ1, แนวรับ2], "resistance": [แนวต้าน1, แนวต้าน2] },
-  "botRecommendation": "คำแนะนำสั้นๆ สำหรับตั้งค่า Bot CDC Action Zone",
-  "riskAssessment": "ประเมินความเสี่ยงและคำแนะนำสัดส่วนพอร์ต"
+  "botRecommendation": "คำแนะนำสำหรับตั้งค่าและออกออเดอร์ด้วย Bot CDC Action Zone V2",
+  "riskAssessment": "ประเมินความเสี่ยงและคำแนะนำการจัดสรรเงินทุน (Money Management)"
 }`;
 
     const response = await ai.models.generateContent({
@@ -995,8 +1026,8 @@ ${recentCandlesSummary}
         summary: text,
         marketTrend: 'SIDEWAYS',
         keyLevels: { support: [currentPrice * 0.95], resistance: [currentPrice * 1.05] },
-        botRecommendation: 'ทำตามวินัย CDC Action Zone V2',
-        riskAssessment: 'ตั้ง Stop loss ทุกครั้งเพื่อป้องกันความเสี่ยง',
+        botRecommendation: 'ทำตามวินัยระบบ CDC Action Zone V2',
+        riskAssessment: 'ตั้ง Stop loss ทุกครั้งเพื่อควบคุมความเสี่ยง',
       };
     }
 
@@ -1004,7 +1035,10 @@ ${recentCandlesSummary}
   } catch (error: any) {
     return res.status(500).json({ error: sanitizeErrorMessage(error) });
   }
-});
+};
+
+app.post('/api/ai/analyze', handleAiAnalyze);
+app.post('/api/ai-analyze', handleAiAnalyze);
 
 // ==================== VITE & SERVER LAUNCH ====================
 
@@ -1024,7 +1058,7 @@ async function startServer() {
   }
 
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 CDC Action Zone 24/7 Cloud Bot Server running on port ${PORT}`);
+    console.log(`🚀 CDC Action Zone V2 SET Thai Stock Bot Server running on port ${PORT}`);
   });
 }
 

@@ -1,9 +1,9 @@
 /**
- * Lightweight, synchronous encryption utility to protect Binance API Keys
+ * Lightweight, synchronous encryption utility to protect Settrade / Broker API Keys
  * stored in the browser's localStorage from direct inspection.
  */
 
-const ENCRYPTION_KEY = 'cdc_action_zone_bot_secure_salt_987654321';
+const ENCRYPTION_KEY = 'cdc_action_zone_stock_bot_secure_salt_987654321';
 
 /**
  * Encrypts plaintext using XOR cipher with a static salt and encodes to Base64

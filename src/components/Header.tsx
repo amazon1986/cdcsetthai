@@ -1,6 +1,6 @@
 import React from 'react';
-import { BotConfig, PaperAccount, BitkubTicker24h } from '../types';
-import { formatCryptoPrice } from '../lib/bitkubApi';
+import { BotConfig, PaperAccount, StockTicker24h } from '../types';
+import { formatStockPrice } from '../lib/stockApi';
 import {
   TrendingUp,
   Cpu,
@@ -25,9 +25,9 @@ interface HeaderProps {
   onOpenSettings: () => void;
   onResetPaperAccount: () => void;
   onToggleBot: () => void;
-  btcPrice?: number;
-  ethPrice?: number;
-  tickers?: BitkubTicker24h[];
+  pttPrice?: number;
+  cpallPrice?: number;
+  tickers?: StockTicker24h[];
   onSelectSymbol?: (symbol: string) => void;
 }
 
@@ -39,8 +39,8 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenSettings,
   onResetPaperAccount,
   onToggleBot,
-  btcPrice,
-  ethPrice,
+  pttPrice,
+  cpallPrice,
   tickers = [],
   onSelectSymbol,
 }) => {
@@ -62,14 +62,14 @@ export const Header: React.FC<HeaderProps> = ({
                 CDC Action Zone <span className="text-emerald-400 font-extrabold">V2</span>
               </h1>
               <span className="text-xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full font-medium">
-                SET50 Stock Bot
+                SET Thai Stock Bot
               </span>
             </div>
-            <p className="text-xs text-slate-400">ระบบบอทเทรดหุ้นไทยตามสัญญาณอินดิเคเตอร์ Chaloke.org</p>
+            <p className="text-xs text-slate-400">ระบบบอทเทรดหุ้นไทยตามสัญญาณอินดิเคเตอร์ Chaloke.org (ลุงโฉลก)</p>
           </div>
         </div>
 
-        {/* Live Running Ticker Tape (ข้อความวิ่งราคาหุ้นทั้งหมดในระบบ) */}
+        {/* Live Running Ticker Tape (ข้อความวิ่งราคาหุ้นไทยทั้งหมดในระบบ) */}
         <div className="flex-1 max-w-xl mx-2 sm:mx-4 overflow-hidden rounded-xl bg-slate-950/80 border border-slate-800/80 py-1.5 px-3 relative group">
           {/* Gradient Edge Masks for Smooth Visual Fade */}
           <div className="absolute left-0 top-0 bottom-0 w-6 bg-gradient-to-r from-slate-950 to-transparent z-10 pointer-events-none" />
@@ -79,7 +79,7 @@ export const Header: React.FC<HeaderProps> = ({
             <div className="animate-marquee flex items-center space-x-6 text-xs whitespace-nowrap">
               {displayTickerItems.map((t, idx) => {
                 const isPositive = t.priceChangePercent >= 0;
-                const formattedPrice = formatCryptoPrice(t.lastPrice);
+                const formattedPrice = formatStockPrice(t.lastPrice);
 
                 return (
                   <div
@@ -106,13 +106,9 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
           ) : (
             <div className="flex items-center justify-center space-x-4 text-xs text-slate-400 py-0.5">
-              <span className="animate-pulse">กำลังดึงราคาหุ้นทั้งหมดในระบบ...</span>
-              {btcPrice && (
-                <span className="font-mono text-emerald-400">PTT: ฿{btcPrice.toLocaleString()}</span>
-              )}
-              {ethPrice && (
-                <span className="font-mono text-cyan-400">CPALL: ฿{ethPrice.toLocaleString()}</span>
-              )}
+              <span className="animate-pulse">กำลังดึงราคาหุ้นไทยทั้งหมดในระบบ...</span>
+              {pttPrice && <span className="font-mono text-emerald-400">PTT: ฿{pttPrice.toLocaleString()}</span>}
+              {cpallPrice && <span className="font-mono text-cyan-400">CPALL: ฿{cpallPrice.toLocaleString()}</span>}
             </div>
           )}
         </div>
@@ -124,7 +120,7 @@ export const Header: React.FC<HeaderProps> = ({
             <div className="flex items-center space-x-2 bg-slate-800 border border-slate-700 px-3 py-1.5 rounded-lg text-xs">
               <Wallet className="w-4 h-4 text-emerald-400" />
               <div>
-                <span className="text-slate-400 block text-[10px] leading-tight">Paper Capital</span>
+                <span className="text-slate-400 block text-[10px] leading-tight">พอร์ตจำลอง (Paper)</span>
                 <span className="font-mono font-bold text-white text-xs">
                   ฿{paperAccount.usdtBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
@@ -140,7 +136,7 @@ export const Header: React.FC<HeaderProps> = ({
           ) : (
             <div className="flex items-center space-x-2 bg-amber-500/10 border border-amber-500/30 px-3 py-1.5 rounded-lg text-xs text-amber-400">
               <ShieldAlert className="w-4 h-4 text-amber-400" />
-              <span className="font-semibold">SET Live API</span>
+              <span className="font-semibold">SET Live Trade</span>
             </div>
           )}
 
@@ -170,7 +166,7 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             onClick={onOpenSettings}
             className="p-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-white rounded-lg transition"
-            title="ตั้งค่า Settrade API Key / Mode"
+            title="ตั้งค่า Settrade API Key / โหมดการเทรด"
           >
             <Settings className="w-4 h-4" />
           </button>

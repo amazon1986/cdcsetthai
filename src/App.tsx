@@ -5,9 +5,9 @@ import {
   BotConfig,
   PaperAccount,
   ExecutedTrade,
-  BitkubApiKeys,
+  SettradeApiKeys,
   PaperPosition,
-  BitkubTicker24h,
+  StockTicker24h,
 } from './types';
 import {
   getStoredBotConfig,
@@ -17,8 +17,8 @@ import {
   getStoredTradeHistory,
   saveTradeHistory,
   addTradeToHistory,
-  getStoredBitkubKeys,
-  saveBitkubKeys,
+  getStoredBrokerKeys,
+  saveBrokerKeys,
   getStoredLogs,
   addBotLog,
   getStoredSymbols,
@@ -32,14 +32,14 @@ import {
   closePositionOnServer,
   clearBotServerLogs,
   resetBotServerPaperAccount,
-  saveBitkubKeysToServer,
+  saveBrokerKeysToServer,
 } from './lib/botApi';
 import {
-  fetchBitkubKlines,
-  fetchBitkubTicker24h,
-  POPULAR_PAIRS,
-  formatCryptoPrice,
-} from './lib/bitkubApi';
+  fetchStockKlines,
+  fetchStockTicker24h,
+  POPULAR_STOCKS,
+  formatStockPrice,
+} from './lib/stockApi';
 import { calculateCDCActionZone, getCrossoverInfo } from './lib/cdcIndicator';
 import { Header } from './components/Header';
 import { CDCChart } from './components/CDCChart';
@@ -47,7 +47,7 @@ import { BotControlPanel } from './components/BotControlPanel';
 import { BacktestingView } from './components/BacktestingView';
 import { MarketScanner } from './components/MarketScanner';
 import { AiAnalystPanel } from './components/AiAnalystPanel';
-import { BitkubSettingsModal } from './components/BitkubSettingsModal';
+import { SettradeSettingsModal } from './components/SettradeSettingsModal';
 import { TradeHistoryTable } from './components/TradeHistoryTable';
 import { TradingStats } from './components/TradingStats';
 import { CoffeeDonation } from './components/CoffeeDonation';
@@ -70,7 +70,7 @@ function calculateOrderSize(config: BotConfig, account: PaperAccount): number {
   } else if (mode === 'PERCENT_EQUITY') {
     targetUsdt = (totalEquity * (config.balancePercent || 20)) / 100;
   } else {
-    targetUsdt = config.tradeAmountUsdt || 100;
+    targetUsdt = config.tradeAmountUsdt || 10000;
   }
 
   return Math.min(targetUsdt, account.usdtBalance);
@@ -84,7 +84,7 @@ export default function App() {
   const [botConfig, setBotConfig] = useState<BotConfig>(getStoredBotConfig);
   const [chartTimeframe, setChartTimeframe] = useState<Timeframe>(() => getStoredBotConfig().timeframe || '1d');
   const [paperAccount, setPaperAccount] = useState<PaperAccount>(getStoredPaperAccount);
-  const [bitkubKeys, setBitkubKeys] = useState<BitkubApiKeys>(getStoredBitkubKeys);
+  const [brokerKeys, setBrokerKeys] = useState<SettradeApiKeys>(getStoredBrokerKeys);
   const [tradeHistory, setTradeHistory] = useState<ExecutedTrade[]>(getStoredTradeHistory);
   const [botLogs, setBotLogs] = useState<string[]>(getStoredLogs);
 
@@ -94,7 +94,7 @@ export default function App() {
   const [isLoadingCandles, setIsLoadingCandles] = useState(false);
   const [pttPrice, setPttPrice] = useState<number | undefined>(undefined);
   const [cpallPrice, setCpallPrice] = useState<number | undefined>(undefined);
-  const [allTickers, setAllTickers] = useState<BitkubTicker24h[]>([]);
+  const [allTickers, setAllTickers] = useState<StockTicker24h[]>([]);
 
   // Notification Toast State
   const [toastMessage, setToastMessage] = useState<{ text: string; type: 'buy' | 'sell' | 'info' } | null>(null);
@@ -114,7 +114,7 @@ export default function App() {
     setIsLoadingCandles(true);
     try {
       // A. Load Chart Viewing Candles (on chartTimeframe)
-      const chartRaw = await fetchBitkubKlines(botConfig.symbol, chartTimeframe, 300);
+      const chartRaw = await fetchStockKlines(botConfig.symbol, chartTimeframe, 300);
       const chartCdc = calculateCDCActionZone(chartRaw, botConfig.fastEmaPeriod, botConfig.slowEmaPeriod);
       setCandles(chartCdc);
       if (chartCdc.length > 0) {
@@ -126,7 +126,7 @@ export default function App() {
       if (chartTimeframe === botConfig.timeframe) {
         setBotCandles(chartCdc);
       } else {
-        const botRaw = await fetchBitkubKlines(botConfig.symbol, botConfig.timeframe, 300);
+        const botRaw = await fetchStockKlines(botConfig.symbol, botConfig.timeframe, 300);
         const botCdc = calculateCDCActionZone(botRaw, botConfig.fastEmaPeriod, botConfig.slowEmaPeriod);
         setBotCandles(botCdc);
       }
@@ -140,14 +140,14 @@ export default function App() {
   // 2. Fetch All Stock Prices for Header Running Ticker Tape
   const loadTickers = useCallback(async () => {
     try {
-      const raw = await fetchBitkubTicker24h();
+      const raw = await fetchStockTicker24h();
       if (raw && raw.length > 0) {
-        const popularSet = new Set(POPULAR_PAIRS);
+        const popularSet = new Set(POPULAR_STOCKS);
         const filtered = raw
           .filter((t) => popularSet.has(t.symbol))
           .sort((a, b) => {
-            const indexA = POPULAR_PAIRS.indexOf(a.symbol);
-            const indexB = POPULAR_PAIRS.indexOf(b.symbol);
+            const indexA = POPULAR_STOCKS.indexOf(a.symbol);
+            const indexB = POPULAR_STOCKS.indexOf(b.symbol);
             if (indexA !== -1 && indexB !== -1) return indexA - indexB;
             if (indexA !== -1) return -1;
             if (indexB !== -1) return 1;
@@ -254,19 +254,19 @@ export default function App() {
     await saveBotServerConfig(updated);
   };
 
-  const handleSaveBitkubKeys = async (updatedKeys: BitkubApiKeys) => {
-    setBitkubKeys(updatedKeys);
-    saveBitkubKeys(updatedKeys);
-    await saveBitkubKeysToServer(updatedKeys);
-    showToast(`อัปเดต Bitkub API Key เรียบร้อย`, 'info');
+  const handleSaveBrokerKeys = async (updatedKeys: SettradeApiKeys) => {
+    setBrokerKeys(updatedKeys);
+    saveBrokerKeys(updatedKeys);
+    await saveBrokerKeysToServer(updatedKeys);
+    showToast(`อัปเดต Settrade API Key เรียบร้อย`, 'info');
   };
 
   const handleResetPaperAccount = async () => {
-    if (confirm('คุณต้องการรีเซ็ตยอดเงินบัญชีทดลอง (Paper Trading) เป็น ฿10,000 THB หรือไม่?')) {
+    if (confirm('คุณต้องการรีเซ็ตยอดเงินบัญชีทดลอง (Paper Trading) เป็น ฿100,000 THB หรือไม่?')) {
       await resetBotServerPaperAccount();
       setPaperAccount(DEFAULT_PAPER_ACCOUNT);
       savePaperAccount(DEFAULT_PAPER_ACCOUNT);
-      showToast('รีเซ็ตยอดเงินพอร์ตจำลองเป็น ฿10,000 THB แล้ว', 'info');
+      showToast('รีเซ็ตยอดเงินพอร์ตจำลองเป็น ฿100,000 THB แล้ว', 'info');
     }
   };
 
@@ -279,7 +279,7 @@ export default function App() {
     if (!price || price === 0) return;
     const existingPos = paperAccount.activePositions.find((p) => p.symbol === botConfig.symbol);
     if (existingPos) {
-      showToast(`คุณมีโพซิชัน ${botConfig.symbol} อยู่แล้ว`, 'info');
+      showToast(`คุณมีสถานะถือครองหุ้น ${botConfig.symbol} อยู่แล้ว`, 'info');
       return;
     }
 
@@ -288,7 +288,7 @@ export default function App() {
       : calculateOrderSize(botConfig, paperAccount);
 
     if (tradeUsdt < 10) {
-      showToast('ยอดเงินคงเหลือไม่พอสำหรับซื้อหุ้น (ขั้นต่ำ ฿10)', 'info');
+      showToast('ยอดเงินคงเหลือไม่พอสำหรับซื้อหุ้น (ขั้นต่ำ ฿10 บาท)', 'info');
       return;
     }
 
@@ -325,7 +325,7 @@ export default function App() {
         price = ticker.lastPrice;
       } else {
         try {
-          const tData = await fetchBitkubTicker24h(sym);
+          const tData = await fetchStockTicker24h(sym);
           if (tData.length > 0 && tData[0].lastPrice > 0) {
             price = tData[0].lastPrice;
           }
@@ -347,7 +347,7 @@ export default function App() {
     });
 
     if (res.success) {
-      showToast(`ปิดสัญญา ${sym} เรียบร้อยแล้ว`, 'info');
+      showToast(`ขายปิดสถานะหุ้น ${sym} เรียบร้อยแล้ว`, 'info');
       const data = await fetchBotServerState();
       if (data) {
         setPaperAccount(data.paperAccount);
@@ -355,7 +355,7 @@ export default function App() {
         setBotLogs(data.botLogs);
       }
     } else {
-      showToast(res.error || 'ไม่พบสัญญาที่ต้องการปิด', 'sell');
+      showToast(res.error || 'ไม่พบสถานะหุ้นที่ต้องการปิด', 'sell');
     }
   };
 
@@ -391,10 +391,10 @@ export default function App() {
         onToggleBot={() => {
           const nextState = !botConfig.isActive;
           handleSaveBotConfig({ ...botConfig, isActive: nextState });
-          showToast(nextState ? 'เปิดระบบอัตโนมัติ CDC Bot แล้ว' : 'หยุดระบบอัตโนมัติ CDC Bot แล้ว', 'info');
+          showToast(nextState ? 'เปิดระบบอัตโนมัติ CDC Stock Bot แล้ว' : 'หยุดระบบอัตโนมัติ CDC Stock Bot แล้ว', 'info');
         }}
-        btcPrice={pttPrice}
-        ethPrice={cpallPrice}
+        pttPrice={pttPrice}
+        cpallPrice={cpallPrice}
         tickers={allTickers}
         onSelectSymbol={(selectedSymbol) => {
           handleSaveBotConfig({ ...botConfig, symbol: selectedSymbol });
@@ -433,6 +433,7 @@ export default function App() {
               onManualSell={handleManualSell}
               botLogs={botLogs}
               onClearLogs={() => {
+                localStorage.removeItem('cdc_stock_bot_logs_v2');
                 localStorage.removeItem('cdc_bot_logs_v2');
                 setBotLogs([]);
               }}
@@ -446,6 +447,7 @@ export default function App() {
           <TradingStats
             trades={tradeHistory}
             onClearStats={() => {
+              localStorage.removeItem('cdc_stock_trade_history_v2');
               localStorage.removeItem('cdc_trade_history_v2');
               setTradeHistory([]);
               showToast('ล้างสถิติและประวัติการเทรดทั้งหมดแล้ว', 'info');
@@ -455,7 +457,7 @@ export default function App() {
 
         {activeTab === 'scanner' && (
           <MarketScanner
-            onSelectCoin={(selectedSymbol) => {
+            onSelectStock={(selectedSymbol) => {
               handleSaveBotConfig({ ...botConfig, symbol: selectedSymbol });
               setActiveTab('chart');
               showToast(`เลือกหุ้น ${selectedSymbol} ขึ้นชาร์ตและบอทเรียบร้อย`, 'info');
@@ -478,6 +480,7 @@ export default function App() {
           <TradeHistoryTable
             trades={tradeHistory}
             onClearHistory={() => {
+              localStorage.removeItem('cdc_stock_trade_history_v2');
               localStorage.removeItem('cdc_trade_history_v2');
               setTradeHistory([]);
               showToast('ล้างประวัติการเทรดแล้ว', 'info');
@@ -489,13 +492,13 @@ export default function App() {
         )}
       </main>
 
-      {/* Bitkub Settings Modal */}
-      <BitkubSettingsModal
+      {/* Settrade Broker Settings Modal */}
+      <SettradeSettingsModal
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
-        keys={bitkubKeys}
+        keys={brokerKeys}
         botConfig={botConfig}
-        onSaveKeys={handleSaveBitkubKeys}
+        onSaveKeys={handleSaveBrokerKeys}
         onSaveConfig={handleSaveBotConfig}
       />
     </div>

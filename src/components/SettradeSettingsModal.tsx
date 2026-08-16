@@ -1,17 +1,17 @@
 import React, { useState } from 'react';
-import { BitkubApiKeys, BotConfig } from '../types';
-import { X, Key, Shield, AlertTriangle, CheckCircle, RefreshCw } from 'lucide-react';
+import { SettradeApiKeys, BotConfig } from '../types';
+import { X, Key, Shield, AlertTriangle, CheckCircle, RefreshCw, Layers } from 'lucide-react';
 
-interface BitkubSettingsModalProps {
+interface SettradeSettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  keys: BitkubApiKeys;
+  keys: SettradeApiKeys;
   botConfig: BotConfig;
-  onSaveKeys: (newKeys: BitkubApiKeys) => void;
+  onSaveKeys: (newKeys: SettradeApiKeys) => void;
   onSaveConfig: (newConfig: BotConfig) => void;
 }
 
-export const BitkubSettingsModal: React.FC<BitkubSettingsModalProps> = ({
+export const SettradeSettingsModal: React.FC<SettradeSettingsModalProps> = ({
   isOpen,
   onClose,
   keys,
@@ -21,7 +21,11 @@ export const BitkubSettingsModal: React.FC<BitkubSettingsModalProps> = ({
 }) => {
   const [apiKey, setApiKey] = useState(keys.apiKey || '');
   const [apiSecret, setApiSecret] = useState(keys.apiSecret || '');
-  const [tradingMode, setTradingMode] = useState<'PAPER' | 'BITKUB_LIVE'>(botConfig.mode);
+  const [appCode, setAppCode] = useState(keys.appCode || '');
+  const [brokerId, setBrokerId] = useState(keys.brokerId || 'SANDBOX');
+  const [tradingMode, setTradingMode] = useState<'PAPER' | 'SETTRADE_LIVE'>(
+    botConfig.mode === 'SETTRADE_LIVE' ? 'SETTRADE_LIVE' : 'PAPER'
+  );
 
   const [isVerifying, setIsVerifying] = useState(false);
   const [verifyStatus, setVerifyStatus] = useState<{
@@ -36,17 +40,17 @@ export const BitkubSettingsModal: React.FC<BitkubSettingsModalProps> = ({
     setIsVerifying(true);
     setVerifyStatus(null);
     try {
-      const res = await fetch('/api/bitkub/balances', {
+      const res = await fetch('/api/stock/balances', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ apiKey, apiSecret }),
+        body: JSON.stringify({ apiKey, apiSecret, appCode, brokerId }),
       });
 
       const data = await res.json();
       if (res.ok && data.success) {
         setVerifyStatus({
           success: true,
-          message: `เชื่อมต่อบัญชี Settrade Sandbox สำเร็จ! ดึงข้อมูลยอดเงินสำเร็จ 🟢`,
+          message: `เชื่อมต่อบัญชี Settrade Open API สำเร็จ! บัญชีพร้อมเทรดหุ้นไทย 🟢`,
           canTrade: true,
         });
       } else {
@@ -67,7 +71,7 @@ export const BitkubSettingsModal: React.FC<BitkubSettingsModalProps> = ({
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
-    onSaveKeys({ apiKey, apiSecret });
+    onSaveKeys({ apiKey, apiSecret, appCode, brokerId });
     onSaveConfig({ ...botConfig, mode: tradingMode });
     onClose();
   };
@@ -78,7 +82,7 @@ export const BitkubSettingsModal: React.FC<BitkubSettingsModalProps> = ({
         <div className="flex items-center justify-between border-b border-slate-800 pb-3">
           <div className="flex items-center space-x-2">
             <Key className="w-5 h-5 text-amber-400" />
-            <h3 className="text-base font-bold text-white">ตั้งค่าการเชื่อมต่อ Settrade API & Mode</h3>
+            <h3 className="text-base font-bold text-white">ตั้งค่าการเชื่อมต่อ Settrade Open API & โหมดการเทรด</h3>
           </div>
           <button onClick={onClose} className="p-1 text-slate-400 hover:text-white rounded-lg">
             <X className="w-5 h-5" />
@@ -101,38 +105,38 @@ export const BitkubSettingsModal: React.FC<BitkubSettingsModalProps> = ({
               >
                 <span className="text-emerald-400 font-bold">🟢 Paper Trading (จำลอง)</span>
                 <span className="text-[10px] text-slate-400 font-normal">
-                  ใช้เงินจำลอง (฿100,000) ไม่มีความเสี่ยง ปลอดภัย 100%
+                  ใช้เงินจำลอง (฿100,000 THB) ไม่มีความเสี่ยง ปลอดภัย 100%
                 </span>
               </button>
 
               <button
                 type="button"
-                onClick={() => setTradingMode('BITKUB_LIVE')}
+                onClick={() => setTradingMode('SETTRADE_LIVE')}
                 className={`p-3 rounded-xl border text-left transition flex flex-col justify-between space-y-1 ${
-                  tradingMode === 'BITKUB_LIVE'
+                  tradingMode === 'SETTRADE_LIVE'
                     ? 'bg-amber-500/15 border-amber-500/50 text-white font-bold'
                     : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
                 }`}
               >
-                <span className="text-amber-400 font-bold">⚡ Settrade Sandbox API</span>
+                <span className="text-amber-400 font-bold">⚡ Settrade Live / Sandbox</span>
                 <span className="text-[10px] text-slate-400 font-normal">
-                  ส่งคำสั่งซื้อขายจริงเข้า Settrade Sandbox/โบรกเกอร์ (ตลาดหุ้นไทย)
+                  ส่งคำสั่งซื้อขายจริงเข้าพอร์ต Settrade Open API (ตลาดหุ้นไทย SET)
                 </span>
               </button>
             </div>
           </div>
 
-          {/* Warning spot only */}
+          {/* Thai Stock Market Info */}
           <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 flex items-start space-x-2 text-[10px] text-slate-400">
             <Shield className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
             <span>
-              <strong>SET Stock Market</strong>: บอทนี้จะทำงานในระบบตลาดหลักทรัพย์แห่งประเทศไทย (SET) ซึ่งจะทำการเปิดฝั่ง Buy (เพื่อซื้อหุ้น) และ Sell (เพื่อขายหุ้นออก) ตามสัญญาณ CDC Action Zone เป็นหลัก
+              <strong>ตลาดหลักทรัพย์แห่งประเทศไทย (SET)</strong>: บอทนี้ทำงานด้วยสูตร CDC Action Zone V2 (ลุงโฉลก - Chaloke.org) ซื้อเมื่อสัญญาณฟ้า/เขียวคอนเฟิร์ม และขายออกเพื่อถือเงินสดเมื่อสัญญาณแดง
             </span>
           </div>
 
           {/* App Key Input */}
           <div className="space-y-1">
-            <label className="text-slate-300 font-medium block">Settrade App Key (Sandbox)</label>
+            <label className="text-slate-300 font-medium block">Settrade App Key</label>
             <input
               type="text"
               placeholder="กรอก App Key จาก Settrade Open API..."
@@ -144,7 +148,7 @@ export const BitkubSettingsModal: React.FC<BitkubSettingsModalProps> = ({
 
           {/* App Secret Input */}
           <div className="space-y-1">
-            <label className="text-slate-300 font-medium block">Settrade App Secret (Sandbox)</label>
+            <label className="text-slate-300 font-medium block">Settrade App Secret</label>
             <input
               type="password"
               placeholder="กรอก App Secret..."
@@ -152,6 +156,30 @@ export const BitkubSettingsModal: React.FC<BitkubSettingsModalProps> = ({
               onChange={(e) => setApiSecret(e.target.value)}
               className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:border-emerald-500"
             />
+          </div>
+
+          {/* App Code / Broker ID Input (Optional) */}
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-1">
+              <label className="text-slate-300 font-medium block">App Code (Optional)</label>
+              <input
+                type="text"
+                placeholder="เช่น SANDBOX_APP"
+                value={appCode}
+                onChange={(e) => setAppCode(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:border-emerald-500 text-xs"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-slate-300 font-medium block">Broker ID</label>
+              <input
+                type="text"
+                placeholder="SANDBOX / 098"
+                value={brokerId}
+                onChange={(e) => setBrokerId(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:border-emerald-500 text-xs"
+              />
+            </div>
           </div>
 
           {/* Verify Connection Button */}

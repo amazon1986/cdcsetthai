@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Timeframe, BacktestResult, BacktestTrade } from '../types';
-import { fetchBitkubKlines, formatCryptoPrice } from '../lib/bitkubApi';
+import { fetchStockKlines, formatStockPrice } from '../lib/stockApi';
 import { getStoredSymbols } from '../lib/botStore';
 import { calculateCDCActionZone } from '../lib/cdcIndicator';
 import {
@@ -30,7 +30,7 @@ export const BacktestingView: React.FC = () => {
   const runBacktest = async () => {
     setIsLoading(true);
     try {
-      const rawCandles = await fetchBitkubKlines(symbol, timeframe, candleCount);
+      const rawCandles = await fetchStockKlines(symbol, timeframe, candleCount);
       const cdcCandles = calculateCDCActionZone(rawCandles, 12, 26);
 
       if (cdcCandles.length < 30) {
@@ -39,16 +39,16 @@ export const BacktestingView: React.FC = () => {
         return;
       }
 
-      const numInitialCapital = Number(initialCapital) || 1000;
+      const numInitialCapital = Number(initialCapital) || 100000;
       const numStopLossPct = Number(stopLossPct) || 0;
       const numTakeProfitPct = Number(takeProfitPct) || 0;
 
-      let usdtBalance = numInitialCapital;
+      let thbBalance = numInitialCapital;
       let inPosition = false;
       let posSide: 'LONG' | 'SHORT' = 'LONG';
       let entryPrice = 0;
       let entryTime = 0;
-      let positionCoins = 0;
+      let positionShares = 0;
       let entryReason = '';
 
       const trades: BacktestTrade[] = [];
@@ -63,13 +63,13 @@ export const BacktestingView: React.FC = () => {
         const prevCandle = cdcCandles[i - 1];
 
         // Track Current Portfolio Equity
-        let currentEquity = usdtBalance;
+        let currentEquity = thbBalance;
         if (inPosition) {
           if (posSide === 'LONG') {
-            currentEquity = positionCoins * candle.close;
+            currentEquity = positionShares * candle.close;
           } else {
-            const pnl = positionCoins * (entryPrice - candle.close);
-            currentEquity = usdtBalance + pnl;
+            const pnl = positionShares * (entryPrice - candle.close);
+            currentEquity = thbBalance + pnl;
           }
         }
 
@@ -123,13 +123,13 @@ export const BacktestingView: React.FC = () => {
             let pnlPercent = 0;
 
             if (posSide === 'LONG') {
-              usdtBalance = positionCoins * candle.close;
-              pnlUsdt = usdtBalance - positionCoins * entryPrice;
+              thbBalance = positionShares * candle.close;
+              pnlUsdt = thbBalance - positionShares * entryPrice;
               pnlPercent = ((candle.close - entryPrice) / entryPrice) * 100;
             } else {
-              pnlUsdt = positionCoins * (entryPrice - candle.close);
+              pnlUsdt = positionShares * (entryPrice - candle.close);
               pnlPercent = ((entryPrice - candle.close) / entryPrice) * 100;
-              usdtBalance = usdtBalance + pnlUsdt;
+              thbBalance = thbBalance + pnlUsdt;
             }
 
             trades.push({
@@ -147,12 +147,12 @@ export const BacktestingView: React.FC = () => {
             });
 
             inPosition = false;
-            positionCoins = 0;
+            positionShares = 0;
           }
         }
 
         // 2. Check Entry triggers if not in position (Uncle Chaloke Confirmed Next Bar Rule)
-        if (!inPosition && usdtBalance > 0) {
+        if (!inPosition && thbBalance > 0) {
           const isFirstBlue = candle.zone === 'BLUE' && (!prevCandle || prevCandle.zone !== 'BLUE');
           const isFirstConfirmedGreen =
             candle.zone === 'GREEN' &&
@@ -167,15 +167,15 @@ export const BacktestingView: React.FC = () => {
             posSide = 'LONG';
             entryPrice = candle.close;
             entryTime = candle.time;
-            positionCoins = usdtBalance / entryPrice;
+            positionShares = thbBalance / entryPrice;
             entryReason = `CDC ${candle.colorNameTh}`;
-            usdtBalance = 0;
+            thbBalance = 0;
           } else if ((directionMode === 'SHORT_ONLY' || directionMode === 'BOTH') && isShortTrigger) {
             inPosition = true;
             posSide = 'SHORT';
             entryPrice = candle.close;
             entryTime = candle.time;
-            positionCoins = usdtBalance / entryPrice;
+            positionShares = thbBalance / entryPrice;
             entryReason = `CDC ${candle.colorNameTh}`;
           }
         }
@@ -188,13 +188,13 @@ export const BacktestingView: React.FC = () => {
         let pnlPercent = 0;
 
         if (posSide === 'LONG') {
-          usdtBalance = positionCoins * lastCandle.close;
-          pnlUsdt = usdtBalance - positionCoins * entryPrice;
+          thbBalance = positionShares * lastCandle.close;
+          pnlUsdt = thbBalance - positionShares * entryPrice;
           pnlPercent = ((lastCandle.close - entryPrice) / entryPrice) * 100;
         } else {
-          pnlUsdt = positionCoins * (entryPrice - lastCandle.close);
+          pnlUsdt = positionShares * (entryPrice - lastCandle.close);
           pnlPercent = ((entryPrice - lastCandle.close) / entryPrice) * 100;
-          usdtBalance = usdtBalance + pnlUsdt;
+          thbBalance = thbBalance + pnlUsdt;
         }
 
         trades.push({
@@ -212,7 +212,7 @@ export const BacktestingView: React.FC = () => {
         });
       }
 
-      const totalReturnPercent = ((usdtBalance - numInitialCapital) / numInitialCapital) * 100;
+      const totalReturnPercent = ((thbBalance - numInitialCapital) / numInitialCapital) * 100;
       const firstPrice = cdcCandles[0].close;
       const lastPrice = cdcCandles[cdcCandles.length - 1].close;
       const buyAndHoldReturnPercent = ((lastPrice - firstPrice) / firstPrice) * 100;
@@ -232,7 +232,7 @@ export const BacktestingView: React.FC = () => {
         symbol,
         timeframe,
         initialCapital: numInitialCapital,
-        finalCapital: Number(usdtBalance.toFixed(2)),
+        finalCapital: Number(thbBalance.toFixed(2)),
         totalReturnPercent: Number(totalReturnPercent.toFixed(2)),
         buyAndHoldReturnPercent: Number(buyAndHoldReturnPercent.toFixed(2)),
         totalTrades: trades.length,
@@ -530,8 +530,8 @@ export const BacktestingView: React.FC = () => {
                       </td>
                       <td className="p-2.5">{new Date(t.entryTime).toLocaleDateString('th-TH')}</td>
                       <td className="p-2.5">{new Date(t.exitTime).toLocaleDateString('th-TH')}</td>
-                      <td className="p-2.5">{formatCryptoPrice(t.entryPrice)}</td>
-                      <td className="p-2.5">{formatCryptoPrice(t.exitPrice)}</td>
+                      <td className="p-2.5">{formatStockPrice(t.entryPrice)}</td>
+                      <td className="p-2.5">{formatStockPrice(t.exitPrice)}</td>
                       <td
                         className={`p-2.5 font-bold ${
                           t.pnlUsdt >= 0 ? 'text-emerald-400' : 'text-rose-400'
