@@ -41,6 +41,14 @@ export interface OrderBookData {
   asks: OrderBookEntry[];
 }
 
+export interface StopLossLockInfo {
+  symbol: string;
+  lockedAt: number;
+  triggerPrice: number;
+  triggerZone: CDCZoneColor;
+  reason: string;
+}
+
 export interface BotConfig {
   id: string;
   symbol: string;
@@ -57,6 +65,8 @@ export interface BotConfig {
   takeProfitPercent: number; // 0 = disabled
   useTrailingStop: boolean;
   trailingStopPercent: number;
+  useStopLossLock?: boolean; // Lock coin if hit SL in current trend cycle
+  stopLossLocks?: Record<string, StopLossLockInfo>; // Map of locked symbols
   buyOnSignal: ('BLUE' | 'GREEN')[];
   sellOnSignal: ('YELLOW' | 'RED')[];
   mode: 'PAPER' | 'SETTRADE_LIVE';
@@ -91,6 +101,8 @@ export interface PaperPosition {
   entryTime: number;
   stopLossPrice?: number;
   takeProfitPrice?: number;
+  highestPriceSinceEntry?: number; // Highest price reached for Trailing Stop
+  trailingStopPrice?: number; // Dynamic trailing stop price
   currentPnlUsdt: number; // Current PnL in THB (฿)
   currentPnlPercent: number;
 }
@@ -163,6 +175,8 @@ export interface QualityScoreBreakdown {
   totalScore: number;
   grade: 'S' | 'A' | 'B' | 'C' | 'D';
   gradeLabel: string;
+  entryTimingCategory: 'PRIME_ENTRY' | 'EARLY_TREND' | 'MID_TREND' | 'LATE_STAGE' | 'BEAR_AVOID';
+  entryTimingLabel: string;
   recency: QualityFactorDetail;
   zone: QualityFactorDetail;
   trendStrength: QualityFactorDetail;
@@ -183,8 +197,12 @@ export interface ScannerStockResult {
   trendStrength: number; // % difference between Fast and Slow EMA
   lastSignalTime: string;
   barsSinceSignal: number;
+  barsSinceGoldenCross: number;
   isFresh: boolean;
+  isFreshGoldenCross: boolean;
   isWatchlist?: boolean;
+  entryTimingCategory: 'PRIME_ENTRY' | 'EARLY_TREND' | 'MID_TREND' | 'LATE_STAGE' | 'BEAR_AVOID';
+  entryTimingLabel: string;
   qualityScore: number;
   qualityGrade: 'S' | 'A' | 'B' | 'C' | 'D';
   qualityBreakdown: QualityScoreBreakdown;

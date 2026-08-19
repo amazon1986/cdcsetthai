@@ -205,3 +205,19 @@ export async function sendTelegramTestAlert(params: {
   }
 }
 
+/**
+ * Unlocks a symbol from Stop Loss Lock on server.
+ */
+export async function unlockSymbolOnServer(symbol: string): Promise<boolean> {
+  try {
+    const res = await fetch('/api/bot/unlock-symbol', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ symbol }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+

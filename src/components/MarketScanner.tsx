@@ -58,6 +58,7 @@ type MarketScanMode = 'ALL_MARKET' | 'WATCHLIST' | 'CUSTOM';
 
 type SignalFilterType =
   | 'ALL'
+  | 'PRIME_ENTRY'
   | 'BUY_FRESH'
   | 'BULL_STRONG'
   | 'WARN_TAKE_PROFIT'
@@ -150,13 +151,17 @@ export const MarketScanner: React.FC<MarketScannerProps> = ({ onSelectCoin, onSe
                     ? ((latest.emaFast - latest.emaSlow) / latest.emaSlow) * 100
                     : 0;
 
-                const barsSinceSignal = getBarsSinceZoneChange(cdcCandles);
+                const barsSinceZoneChange = getBarsSinceZoneChange(cdcCandles);
                 const crossoverInfo = getCrossoverInfo(cdcCandles);
-                const isFresh = barsSinceSignal <= 1 || crossoverInfo.isFreshGoldenCross;
+                const barsSinceGoldenCross = crossoverInfo.barsSinceGoldenCross;
+                const isFreshGoldenCross = crossoverInfo.isFreshGoldenCross;
+                const isFresh = barsSinceZoneChange <= 1 || isFreshGoldenCross;
 
                 const qualityBreakdown = calculateCdcQualityScore({
                   zone: latest.zone || 'CYAN',
-                  barsSinceSignal,
+                  barsSinceZoneChange,
+                  barsSinceGoldenCross,
+                  isFreshGoldenCross,
                   trendStrength,
                   volume24h,
                   priceChange24h,
@@ -174,27 +179,31 @@ export const MarketScanner: React.FC<MarketScannerProps> = ({ onSelectCoin, onSe
                   emaSlow: latest.emaSlow || 0,
                   trendStrength,
                   lastSignalTime: new Date(latest.time).toLocaleDateString('th-TH'),
-                  barsSinceSignal,
+                  barsSinceSignal: barsSinceZoneChange,
+                  barsSinceGoldenCross,
                   isFresh,
+                  isFreshGoldenCross,
                   isWatchlist: watchlist.includes(sym),
+                  entryTimingCategory: qualityBreakdown.entryTimingCategory,
+                  entryTimingLabel: qualityBreakdown.entryTimingLabel,
                   qualityScore: qualityBreakdown.totalScore,
                   qualityGrade: qualityBreakdown.grade,
                   qualityBreakdown,
                 });
               }
             } catch (e) {
-              console.error(`Failed to scan ${sym}:`, e);
+              console.warn(`Failed to scan ${sym}:`, e);
+            } finally {
+              completed++;
+              setScanProgress(Math.round((completed / symbolsToScan.length) * 100));
             }
           })
         );
-
-        completed += chunk.length;
-        setScanProgress(Math.min(100, Math.round((completed / symbolsToScan.length) * 100)));
       }
 
       setScanResults(results);
     } catch (err) {
-      console.error('Market scan failed:', err);
+      console.error('Scan error:', err);
     } finally {
       setIsScanning(false);
     }
@@ -279,6 +288,8 @@ export const MarketScanner: React.FC<MarketScannerProps> = ({ onSelectCoin, onSe
 
         // Signal Filter Badges
         switch (signalFilter) {
+          case 'PRIME_ENTRY':
+            return stock.barsSinceGoldenCross <= 1 && (stock.zone === 'BLUE' || stock.zone === 'GREEN');
           case 'BUY_FRESH':
             return stock.zone === 'BLUE';
           case 'BULL_STRONG':
@@ -324,30 +335,33 @@ export const MarketScanner: React.FC<MarketScannerProps> = ({ onSelectCoin, onSe
     const total = scanResults.length;
     const buySignals = scanResults.filter((r) => r.zone === 'BLUE' || r.zone === 'GREEN').length;
     const freshBuys = scanResults.filter((r) => r.zone === 'BLUE').length;
+    const primeEntries = scanResults.filter(
+      (r) => r.barsSinceGoldenCross <= 1 && (r.zone === 'BLUE' || r.zone === 'GREEN')
+    ).length;
     const topQuality = scanResults.filter((r) => r.qualityScore >= 75).length;
     const avgScore =
       total > 0 ? Math.round(scanResults.reduce((acc, r) => acc + r.qualityScore, 0) / total) : 0;
 
-    return { total, buySignals, freshBuys, topQuality, avgScore };
+    return { total, buySignals, freshBuys, primeEntries, topQuality, avgScore };
   }, [scanResults]);
 
   // Color helper for Quality Score Badges
   const getQualityScoreTheme = (score: number, _grade: string) => {
-    if (score >= 90) {
+    if (score >= 85) {
       return {
         bg: 'bg-emerald-500/15 border-emerald-500/40 text-emerald-400',
         bar: 'from-emerald-500 to-teal-400',
         badge: 'bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-black',
       };
     }
-    if (score >= 75) {
+    if (score >= 70) {
       return {
         bg: 'bg-cyan-500/15 border-cyan-500/40 text-cyan-400',
         bar: 'from-cyan-500 to-blue-400',
         badge: 'bg-gradient-to-r from-cyan-500 to-blue-500 text-slate-950 font-black',
       };
     }
-    if (score >= 60) {
+    if (score >= 55) {
       return {
         bg: 'bg-amber-500/15 border-amber-500/40 text-amber-400',
         bar: 'from-amber-500 to-yellow-400',
@@ -544,21 +558,21 @@ export const MarketScanner: React.FC<MarketScannerProps> = ({ onSelectCoin, onSe
 
           <div className="space-y-0.5">
             <span className="text-[10px] text-emerald-400 font-semibold uppercase tracking-wider flex items-center">
-              <Zap className="w-3 h-3 mr-1" /> สัญญาณซื้อ (ฟ้า/เขียว)
+              <Sparkles className="w-3 h-3 mr-1 text-emerald-300" /> จุดเข้าที่ดีที่สุด (0-1 แท่ง)
             </span>
             <div className="flex items-baseline space-x-1">
               <span className="text-xl font-black text-emerald-400 font-mono">
-                {summaryMetrics.buySignals}
+                {summaryMetrics.primeEntries}
               </span>
               <span className="text-[11px] text-emerald-500/70">
-                (ฟ้าแรก {summaryMetrics.freshBuys})
+                (ซื้อทั้งหมด {summaryMetrics.buySignals})
               </span>
             </div>
           </div>
 
           <div className="space-y-0.5">
             <span className="text-[10px] text-cyan-400 font-semibold uppercase tracking-wider flex items-center">
-              <Award className="w-3 h-3 mr-1" /> คุณภาพสูง (Score ≥75)
+              <Award className="w-3 h-3 mr-1" /> คุณภาพสูง (Score ≥70)
             </span>
             <div className="flex items-baseline space-x-1">
               <span className="text-xl font-black text-cyan-400 font-mono">
@@ -587,7 +601,7 @@ export const MarketScanner: React.FC<MarketScannerProps> = ({ onSelectCoin, onSe
             <div className="flex justify-between text-xs text-slate-300 font-medium">
               <span className="flex items-center space-x-2">
                 <RefreshCw className="w-3.5 h-3.5 animate-spin text-emerald-400" />
-                <span>กำลังดึงแท่งเทียน & คำนวณคะแนน CDC Quality Score 5 ปัจจัย...</span>
+                <span>กำลังดึงแท่งเทียน & คำนวณคะแนน CDC Quality Score (เน้นเขียวซื้อ แดงขาย)...</span>
               </span>
               <span className="font-mono text-emerald-400 font-bold">{scanProgress}%</span>
             </div>
@@ -613,6 +627,22 @@ export const MarketScanner: React.FC<MarketScannerProps> = ({ onSelectCoin, onSe
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+            {/* Badge: Prime Entry Only */}
+            <button
+              onClick={() => setSignalFilter('PRIME_ENTRY')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer ${
+                signalFilter === 'PRIME_ENTRY'
+                  ? 'bg-gradient-to-r from-emerald-400 via-teal-400 to-cyan-400 text-slate-950 shadow-lg shadow-emerald-950/40 font-black'
+                  : 'bg-emerald-950/40 hover:bg-emerald-900/40 text-emerald-300 border border-emerald-500/50 shadow-sm'
+              }`}
+            >
+              <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+              <span>🌟 จุดเข้าที่ดีที่สุด (เขียวแรก 0–1 แท่ง)</span>
+              <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-emerald-900/90 text-emerald-200 font-mono font-bold">
+                {scanResults.filter((r) => r.barsSinceGoldenCross <= 1 && (r.zone === 'BLUE' || r.zone === 'GREEN')).length}
+              </span>
+            </button>
+
             {/* Badge: All */}
             <button
               onClick={() => setSignalFilter('ALL')}
@@ -980,13 +1010,15 @@ export const MarketScanner: React.FC<MarketScannerProps> = ({ onSelectCoin, onSe
                       />
                     </div>
 
-                    {/* Sub info: Recency & Fresh status */}
-                    <div className="flex items-center justify-between text-[10px] text-slate-400 mt-1.5">
-                      <span>ความสดใหม่: {stock.barsSinceSignal} แท่ง</span>
-                      {stock.isFresh && (
-                        <span className="text-amber-400 font-extrabold flex items-center">
-                          <Flame className="w-3 h-3 mr-0.5" /> สดใหม่!
+                    {/* Sub info: Entry Timing Badge & Golden Cross Info */}
+                    <div className="flex items-center justify-between text-[10px] text-slate-300 mt-2 pt-1 border-t border-slate-800/40">
+                      <span className="font-semibold">{stock.entryTimingLabel}</span>
+                      {stock.barsSinceGoldenCross <= 1 && (stock.zone === 'BLUE' || stock.zone === 'GREEN') ? (
+                        <span className="text-emerald-300 font-extrabold flex items-center bg-emerald-500/20 px-1.5 py-0.5 rounded border border-emerald-500/40 shadow-sm animate-pulse">
+                          <Sparkles className="w-3 h-3 mr-0.5" /> จุดเข้าแรก!
                         </span>
+                      ) : (
+                        <span className="text-slate-500 font-mono">GC: {stock.barsSinceGoldenCross} แท่ง</span>
                       )}
                     </div>
                   </div>
@@ -1149,12 +1181,16 @@ export const MarketScanner: React.FC<MarketScannerProps> = ({ onSelectCoin, onSe
                         </div>
                       </td>
 
-                      {/* Recency */}
+                      {/* Recency & Entry Timing */}
                       <td className="py-3 px-4 text-slate-300">
-                        {stock.barsSinceSignal} แท่ง
-                        {stock.isFresh && (
-                          <span className="text-amber-400 ml-1 font-bold">🔥 สดใหม่</span>
-                        )}
+                        <div className="space-y-0.5">
+                          <div className="font-semibold text-xs text-white">
+                            {stock.entryTimingLabel}
+                          </div>
+                          <div className="text-[10px] text-slate-500 font-mono">
+                            GC: {stock.barsSinceGoldenCross} แท่ง ({stock.barsSinceSignal} แท่งในโซน)
+                          </div>
+                        </div>
                       </td>
 
                       {/* EMA Spread */}
@@ -1168,7 +1204,7 @@ export const MarketScanner: React.FC<MarketScannerProps> = ({ onSelectCoin, onSe
                       </td>
 
                       {/* Volume */}
-                      <td className="py-3 px-4 text-slate-400">
+                      <td className="py-3 px-4 text-slate-400 font-mono">
                         ฿{(stock.volume24h / 1_000_000).toFixed(1)}M
                       </td>
 
@@ -1205,7 +1241,7 @@ export const MarketScanner: React.FC<MarketScannerProps> = ({ onSelectCoin, onSe
                     <h3 className="text-base font-black text-white font-mono">
                       {selectedStockForBreakdown.symbol}
                     </h3>
-                    <span className="text-xs text-slate-400">วิเคราะห์ 5 ปัจจัย CDC Quality Score</span>
+                    <span className="text-xs text-slate-400">วิเคราะห์ 5 ปัจจัย (ทฤษฎีเขียวซื้อ แดงขาย)</span>
                   </div>
                   <p className="text-xs text-emerald-400 font-bold">
                     {selectedStockForBreakdown.qualityBreakdown.gradeLabel}
@@ -1222,7 +1258,7 @@ export const MarketScanner: React.FC<MarketScannerProps> = ({ onSelectCoin, onSe
 
             {/* Total Score Meter Card */}
             <div className="bg-slate-950 rounded-2xl p-4 border border-slate-800/90 text-center space-y-2">
-              <span className="text-xs text-slate-400 font-bold">คะแนนรวมสุทธิ (Total Score)</span>
+              <span className="text-xs text-slate-400 font-bold">คะแนนคุณภาพจุดเข้าซื้อ (Total Quality Score)</span>
               <div className="text-4xl font-black font-mono text-white">
                 {selectedStockForBreakdown.qualityScore}{' '}
                 <span className="text-lg text-slate-500">/ 100</span>
@@ -1237,12 +1273,12 @@ export const MarketScanner: React.FC<MarketScannerProps> = ({ onSelectCoin, onSe
 
             {/* 5 Factors Breakdown List */}
             <div className="space-y-3 text-xs">
-              {/* Factor 1: Recency */}
+              {/* Factor 1: Recency & Golden Cross Timing */}
               <div className="bg-slate-950/60 p-3 rounded-xl border border-slate-800/70 space-y-1">
                 <div className="flex justify-between font-bold">
-                  <span className="text-slate-300">1. ความสดใหม่ของสัญญาณ (Recency)</span>
+                  <span className="text-slate-300">1. {selectedStockForBreakdown.qualityBreakdown.recency.label}</span>
                   <span className="text-emerald-400 font-mono">
-                    {selectedStockForBreakdown.qualityBreakdown.recency.score} / 25
+                    {selectedStockForBreakdown.qualityBreakdown.recency.score} / {selectedStockForBreakdown.qualityBreakdown.recency.maxScore}
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-400">
@@ -1253,9 +1289,9 @@ export const MarketScanner: React.FC<MarketScannerProps> = ({ onSelectCoin, onSe
               {/* Factor 2: Zone */}
               <div className="bg-slate-950/60 p-3 rounded-xl border border-slate-800/70 space-y-1">
                 <div className="flex justify-between font-bold">
-                  <span className="text-slate-300">2. โซนสี CDC Action Zone (Zone)</span>
+                  <span className="text-slate-300">2. {selectedStockForBreakdown.qualityBreakdown.zone.label}</span>
                   <span className="text-emerald-400 font-mono">
-                    {selectedStockForBreakdown.qualityBreakdown.zone.score} / 25
+                    {selectedStockForBreakdown.qualityBreakdown.zone.score} / {selectedStockForBreakdown.qualityBreakdown.zone.maxScore}
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-400">
@@ -1266,9 +1302,9 @@ export const MarketScanner: React.FC<MarketScannerProps> = ({ onSelectCoin, onSe
               {/* Factor 3: Trend Strength */}
               <div className="bg-slate-950/60 p-3 rounded-xl border border-slate-800/70 space-y-1">
                 <div className="flex justify-between font-bold">
-                  <span className="text-slate-300">3. ความแข็งแกร่งแนวโน้ม (Trend Strength)</span>
+                  <span className="text-slate-300">3. {selectedStockForBreakdown.qualityBreakdown.trendStrength.label}</span>
                   <span className="text-emerald-400 font-mono">
-                    {selectedStockForBreakdown.qualityBreakdown.trendStrength.score} / 20
+                    {selectedStockForBreakdown.qualityBreakdown.trendStrength.score} / {selectedStockForBreakdown.qualityBreakdown.trendStrength.maxScore}
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-400">
@@ -1279,9 +1315,9 @@ export const MarketScanner: React.FC<MarketScannerProps> = ({ onSelectCoin, onSe
               {/* Factor 4: Volume */}
               <div className="bg-slate-950/60 p-3 rounded-xl border border-slate-800/70 space-y-1">
                 <div className="flex justify-between font-bold">
-                  <span className="text-slate-300">4. ปริมาณการซื้อขาย 24 ชม. (Volume)</span>
+                  <span className="text-slate-300">4. {selectedStockForBreakdown.qualityBreakdown.volume24h.label}</span>
                   <span className="text-emerald-400 font-mono">
-                    {selectedStockForBreakdown.qualityBreakdown.volume24h.score} / 15
+                    {selectedStockForBreakdown.qualityBreakdown.volume24h.score} / {selectedStockForBreakdown.qualityBreakdown.volume24h.maxScore}
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-400">
@@ -1292,9 +1328,9 @@ export const MarketScanner: React.FC<MarketScannerProps> = ({ onSelectCoin, onSe
               {/* Factor 5: Price Change */}
               <div className="bg-slate-950/60 p-3 rounded-xl border border-slate-800/70 space-y-1">
                 <div className="flex justify-between font-bold">
-                  <span className="text-slate-300">5. การเปลี่ยนแปลงราคา 24 ชม. (Price Change %)</span>
+                  <span className="text-slate-300">5. {selectedStockForBreakdown.qualityBreakdown.priceChange.label}</span>
                   <span className="text-emerald-400 font-mono">
-                    {selectedStockForBreakdown.qualityBreakdown.priceChange.score} / 15
+                    {selectedStockForBreakdown.qualityBreakdown.priceChange.score} / {selectedStockForBreakdown.qualityBreakdown.priceChange.maxScore}
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-400">

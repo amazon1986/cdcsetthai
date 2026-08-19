@@ -238,59 +238,97 @@ export function getBarsSinceZoneChange(candles: KlineData[]): number {
 
 /**
  * 5-Factor CDC Quality Score Algorithm (0-100 Points)
- * Analyzes:
- * 1. Recency (0-25 pts): Signal freshness
- * 2. Zone (0-25 pts): CDC Action Zone state
+ * Based strictly on Uncle Chaloke's "เขียวซื้อ แดงขาย" Strategy:
+ * 1. Golden Cross Entry Timing (0-35 pts): True Golden Cross Bar 0 and Bar 1 (Green 1) gets full 35 pts!
+ * 2. Zone State (0-25 pts): True Blue/Green Golden Cross vs Old Trend Bounce
  * 3. Trend Strength (0-20 pts): Fast vs Slow EMA spread & divergence
- * 4. Volume 24h (0-15 pts): Turnover liquidity backing
- * 5. Price Change % (0-15 pts): Balanced momentum without extreme overbought
+ * 4. Volume 24h (0-10 pts): Turnover liquidity backing
+ * 5. Price Change % (0-10 pts): Balanced momentum without extreme overbought
  */
 export function calculateCdcQualityScore(params: {
   zone: CDCZoneColor;
-  barsSinceSignal: number;
+  barsSinceZoneChange: number;
+  barsSinceGoldenCross: number;
+  isFreshGoldenCross: boolean;
   trendStrength: number;
   volume24h: number;
   priceChange24h: number;
 }): import('../types').QualityScoreBreakdown {
-  const { zone, barsSinceSignal, trendStrength, volume24h, priceChange24h } = params;
+  const {
+    zone,
+    barsSinceZoneChange,
+    barsSinceGoldenCross,
+    isFreshGoldenCross,
+    trendStrength,
+    volume24h,
+    priceChange24h,
+  } = params;
 
-  // 1. Recency (0-25)
+  // 1. Golden Cross Entry Timing (0-35) - Focusing strictly on Uncle Chaloke's เขียวซื้อ แดงขาย
   let recencyScore = 2;
-  let recencyDetail = `สัญญาณดำเนินมานาน (${barsSinceSignal} แท่ง)`;
-  if (barsSinceSignal === 0) {
+  let recencyDetail = `ผ่านจุดตัด Golden Cross มานานแล้ว (${barsSinceGoldenCross} แท่ง) ไม่ใช่จุดเข้าซื้อต้นรอบ`;
+  let entryTimingCategory: 'PRIME_ENTRY' | 'EARLY_TREND' | 'MID_TREND' | 'LATE_STAGE' | 'BEAR_AVOID' = 'LATE_STAGE';
+  let entryTimingLabel = '⚠️ ปลายรอบ (เสี่ยงติดดอย)';
+
+  if (zone === 'RED') {
+    entryTimingCategory = 'BEAR_AVOID';
+    entryTimingLabel = '🟥 ขาลง / ถือเงินสด (ห้ามซื้อ)';
+    recencyScore = 0;
+    recencyDetail = 'โซนแดง ขาลงตามทฤษฎีแดงขาย ควรถือเงินสด';
+  } else if (barsSinceGoldenCross === 0) {
+    recencyScore = 35;
+    recencyDetail = '🌟 จุดตัดสดใหม่แท่งแรก! (Golden Cross Bar 0)';
+    entryTimingCategory = 'PRIME_ENTRY';
+    entryTimingLabel = '🌟 จุดเข้าที่ดีที่สุด (จุดตัดแรก 0 แท่ง)';
+  } else if (barsSinceGoldenCross === 1) {
+    recencyScore = 35;
+    recencyDetail = '🌟 เขียวแรกคอนเฟิร์มตามทฤษฎีลุงโฉลก! (Golden Cross Bar 1 - จุดเข้าซื้อที่ดีที่สุด)';
+    entryTimingCategory = 'PRIME_ENTRY';
+    entryTimingLabel = '🌟 จุดเข้าที่ดีที่สุด (เขียวแรก 1 แท่ง)';
+  } else if (barsSinceGoldenCross <= 3) {
     recencyScore = 25;
-    recencyDetail = 'สดใหม่มาก! สัญญาณเพิ่งเกิดในแท่งปัจจุบัน (0 แท่ง)';
-  } else if (barsSinceSignal === 1) {
-    recencyScore = 23;
-    recencyDetail = 'ยืนยันสัญญาณแรก แท่งที่ 1 (Fresh Confirmation)';
-  } else if (barsSinceSignal <= 3) {
-    recencyScore = 18;
-    recencyDetail = `สัญญาณต้นรอบ (${barsSinceSignal} แท่งก่อนหน้า)`;
-  } else if (barsSinceSignal <= 7) {
-    recencyScore = 12;
-    recencyDetail = `เทรนด์กำลังดำเนิน (${barsSinceSignal} แท่ง)`;
-  } else if (barsSinceSignal <= 15) {
-    recencyScore = 6;
-    recencyDetail = `เทรนด์ดำเนินมาระยะหนึ่ง (${barsSinceSignal} แท่ง)`;
+    recencyDetail = `🌱 สัญญาณต้นรอบตามระบบ (${barsSinceGoldenCross} แท่งหลังจุดตัด)`;
+    entryTimingCategory = 'EARLY_TREND';
+    entryTimingLabel = `🌱 ต้นรอบ (${barsSinceGoldenCross} แท่ง)`;
+  } else if (barsSinceGoldenCross <= 7) {
+    recencyScore = 15;
+    recencyDetail = `📈 เทรนด์กำลังดำเนินระดับกลาง (${barsSinceGoldenCross} แท่งหลังจุดตัด)`;
+    entryTimingCategory = 'MID_TREND';
+    entryTimingLabel = `📈 กลางเทรนด์ (${barsSinceGoldenCross} แท่ง)`;
+  } else if (barsSinceGoldenCross <= 15) {
+    recencyScore = 8;
+    recencyDetail = `เทรนด์ดำเนินมาระยะหนึ่ง (${barsSinceGoldenCross} แท่งหลังจุดตัด)`;
+    entryTimingCategory = 'MID_TREND';
+    entryTimingLabel = `เทรนด์ต่อเนื่อง (${barsSinceGoldenCross} แท่ง)`;
   }
 
   // 2. Zone (0-25)
   let zoneScore = 0;
   let zoneDetail = 'โซนแดง ขาลง / ควรถือเงินสด';
-  if (zone === 'BLUE') {
+  if (zone === 'BLUE' && barsSinceGoldenCross <= 1) {
     zoneScore = 25;
-    zoneDetail = 'โซนฟ้า สัญญาณซื้อเริ่มต้นรอบใหม่ (Buy Trigger)';
-  } else if (zone === 'GREEN') {
+    zoneDetail = 'โซนฟ้า จุดเริ่มรอบใหม่พร้อม Golden Cross (Buy Trigger)';
+  } else if (zone === 'GREEN' && barsSinceGoldenCross <= 1) {
+    zoneScore = 25;
+    zoneDetail = 'โซนเขียว เขียวแรกคอนเฟิร์มจุดเริ่มรอบตามทฤษฎีลุงโฉลก (เขียวซื้อ)';
+  } else if (zone === 'GREEN' && barsSinceGoldenCross <= 5) {
     zoneScore = 20;
-    zoneDetail = 'โซนเขียว รันเทรนด์ขาขึ้นเต็มตัว (Strong Bull)';
+    zoneDetail = 'โซนเขียว รันเทรนด์ต้นรอบแข็งแกร่ง (Strong Bull)';
+  } else if (zone === 'GREEN') {
+    zoneScore = 15;
+    zoneDetail = 'โซนเขียว รันเทรนด์ขาขึ้นต่อเนื่อง (Bull Trend)';
+  } else if (zone === 'BLUE') {
+    // Rebound after yellow in old trend
+    zoneScore = 8;
+    zoneDetail = 'โซนฟ้า เด้งตามเทรนด์เดิมหลังย่อตัว (ไม่ใช่จุดตัดต้นรอบใหญ่)';
   } else if (zone === 'CYAN') {
-    zoneScore = 10;
+    zoneScore = 5;
     zoneDetail = 'โซนไซแอน ไซด์เวย์ พักตัวรอทิศทาง';
   } else if (zone === 'ORANGE') {
-    zoneScore = 8;
+    zoneScore = 4;
     zoneDetail = 'โซนส้ม รีบาวด์ระยะสั้นในขาลง';
   } else if (zone === 'YELLOW') {
-    zoneScore = 5;
+    zoneScore = 2;
     zoneDetail = 'โซนเหลือง เตือนระวังเริ่มชะลอตัว / เตรียมขายทำกำไร';
   }
 
@@ -314,41 +352,41 @@ export function calculateCdcQualityScore(params: {
     trendDetail = `บีบตัวใกล้จุดเปลี่ยน (${trendStrength.toFixed(2)}%)`;
   }
 
-  // 4. Volume 24h (0-15)
-  let volumeScore = 2;
+  // 4. Volume 24h (0-10)
+  let volumeScore = 1;
   const volMil = volume24h / 1_000_000;
   let volumeDetail = `วอลุ่มเบาบาง (฿${volMil.toFixed(2)}M)`;
   if (volume24h >= 50_000_000) {
-    volumeScore = 15;
+    volumeScore = 10;
     volumeDetail = `วอลุ่มหนาแน่นสูงมาก (฿${volMil.toFixed(1)}M)`;
   } else if (volume24h >= 20_000_000) {
-    volumeScore = 12;
+    volumeScore = 8;
     volumeDetail = `วอลุ่มหนาแน่นปานกลางค่อนข้างสูง (฿${volMil.toFixed(1)}M)`;
   } else if (volume24h >= 5_000_000) {
-    volumeScore = 9;
+    volumeScore = 6;
     volumeDetail = `วอลุ่มปานกลาง (฿${volMil.toFixed(1)}M)`;
   } else if (volume24h >= 1_000_000) {
-    volumeScore = 6;
+    volumeScore = 4;
     volumeDetail = `วอลุ่มระดับพอใช้ (฿${volMil.toFixed(1)}M)`;
   }
 
-  // 5. Price Change 24h % (0-15)
+  // 5. Price Change 24h % (0-10)
   let priceScore = 1;
   let priceDetail = `ราคาติดลบหนัก (${priceChange24h.toFixed(2)}%)`;
   if (priceChange24h >= 2.0 && priceChange24h <= 7.0) {
-    priceScore = 15;
+    priceScore = 10;
     priceDetail = `โมเมนตัมกำลังสวย ไม่ overbought (+${priceChange24h.toFixed(2)}%)`;
   } else if (priceChange24h > 0.5 && priceChange24h < 2.0) {
-    priceScore = 12;
+    priceScore = 8;
     priceDetail = `เริ่มขยับบวกเบาๆ (+${priceChange24h.toFixed(2)}%)`;
   } else if (priceChange24h > 7.0) {
-    priceScore = 9;
+    priceScore = 6;
     priceDetail = `พุ่งแรง ระวังการไล่ราคา (+${priceChange24h.toFixed(2)}%)`;
   } else if (priceChange24h >= 0.0 && priceChange24h <= 0.5) {
-    priceScore = 7;
+    priceScore = 5;
     priceDetail = `ราคาทรงตัว (+${priceChange24h.toFixed(2)}%)`;
   } else if (priceChange24h >= -2.0 && priceChange24h < 0.0) {
-    priceScore = 5;
+    priceScore = 3;
     priceDetail = `ย่อตัวเล็กน้อย (${priceChange24h.toFixed(2)}%)`;
   }
 
@@ -356,28 +394,30 @@ export function calculateCdcQualityScore(params: {
 
   let grade: 'S' | 'A' | 'B' | 'C' | 'D' = 'D';
   let gradeLabel = '🚫 ไม่แนะนำ (D)';
-  if (totalScore >= 90) {
+  if (totalScore >= 85) {
     grade = 'S';
-    gradeLabel = '🌟 คุณภาพพรีเมียม (Grade S)';
-  } else if (totalScore >= 75) {
+    gradeLabel = '🌟 จุดเข้าซื้อคุณภาพพรีเมียม (Grade S)';
+  } else if (totalScore >= 70) {
     grade = 'A';
     gradeLabel = '💎 คุณภาพสูง (Grade A)';
-  } else if (totalScore >= 60) {
+  } else if (totalScore >= 55) {
     grade = 'B';
     gradeLabel = '⚡ คุณภาพปานกลาง (Grade B)';
   } else if (totalScore >= 40) {
     grade = 'C';
-    gradeLabel = '⚠️ สัญญาณเฝ้าระวัง (Grade C)';
+    gradeLabel = '⚠️ สัญญาณเฝ้าระวัง / ปลายรอบ (Grade C)';
   }
 
   return {
     totalScore,
     grade,
     gradeLabel,
-    recency: { score: recencyScore, maxScore: 25, label: 'ความสดใหม่ (Recency)', detail: recencyDetail },
+    entryTimingCategory,
+    entryTimingLabel,
+    recency: { score: recencyScore, maxScore: 35, label: 'ความสดใหม่ของจุดตัด (Golden Cross Timing)', detail: recencyDetail },
     zone: { score: zoneScore, maxScore: 25, label: 'โซนสี CDC (Zone)', detail: zoneDetail },
     trendStrength: { score: trendScore, maxScore: 20, label: 'ความแข็งแกร่ง (Trend)', detail: trendDetail },
-    volume24h: { score: volumeScore, maxScore: 15, label: 'วอลุ่ม 24 ชม. (Volume)', detail: volumeDetail },
-    priceChange: { score: priceScore, maxScore: 15, label: 'การเปลี่ยนแปลงราคา (Price %)', detail: priceDetail },
+    volume24h: { score: volumeScore, maxScore: 10, label: 'วอลุ่ม 24 ชม. (Volume)', detail: volumeDetail },
+    priceChange: { score: priceScore, maxScore: 10, label: 'การเปลี่ยนแปลงราคา (Price %)', detail: priceDetail },
   };
 }

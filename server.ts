@@ -230,16 +230,20 @@ function sanitizeErrorMessage(error: any): string {
 // ==================== SERVER-SIDE BOT SIZING & TRADING ENGINE ====================
 
 function calculateOrderSize(config: BotConfig, account: PaperAccount): number {
-  const maxPositions = config.maxOpenPositions || 5;
+  const maxPositions = Math.max(1, Math.min(20, config.maxOpenPositions || 5));
   if (account.activePositions.length >= maxPositions) return 0;
 
-  const totalPositionsValue = account.activePositions.reduce((sum, p) => sum + (p.usdtInvested || 0), 0);
+  const totalPositionsValue = account.activePositions.reduce(
+    (sum, p) => sum + (p.usdtInvested || p.marginUsdt || 0),
+    0
+  );
   const totalEquity = account.usdtBalance + totalPositionsValue;
 
   const mode = config.positionSizingMode || 'EQUAL_WEIGHT';
   let targetUsdt = 0;
 
   if (mode === 'EQUAL_WEIGHT') {
+    // Equal Weight allocation: strictly divided into N equal slots
     targetUsdt = totalEquity / maxPositions;
   } else if (mode === 'PERCENT_EQUITY') {
     targetUsdt = (totalEquity * (config.balancePercent || 20)) / 100;
@@ -365,6 +369,16 @@ async function runServerBotCycle() {
         const posLev = pos.leverage || 1;
         const margin = pos.marginUsdt || pos.usdtInvested;
 
+        // Update Highest Price Reached for Trailing Stop Engine
+        pos.highestPriceSinceEntry = Math.max(
+          pos.highestPriceSinceEntry || pos.entryPrice,
+          currentPrice
+        );
+
+        if (config.useTrailingStop && config.trailingStopPercent > 0) {
+          pos.trailingStopPrice = pos.highestPriceSinceEntry * (1 - config.trailingStopPercent / 100);
+        }
+
         const pnlPercent =
           pos.side === 'SHORT'
             ? ((pos.entryPrice - currentPrice) / pos.entryPrice) * 100 * posLev
@@ -382,6 +396,28 @@ async function runServerBotCycle() {
           exitReason = '⚡ Auto Liquidation (Margin Call -90%)';
         } else if (config.stopLossPercent > 0 && pnlPercent <= -config.stopLossPercent) {
           exitReason = `Stop Loss (-${config.stopLossPercent}%)`;
+
+          // Stop Loss Lock & Whipsaw Protection
+          if (config.useStopLossLock !== false) {
+            if (!serverState.botConfig.stopLossLocks) serverState.botConfig.stopLossLocks = {};
+            serverState.botConfig.stopLossLocks[pos.symbol] = {
+              symbol: pos.symbol,
+              lockedAt: Date.now(),
+              triggerPrice: currentPrice,
+              triggerZone: latestCandle.zone || 'RED',
+              reason: `Stop Loss Cut-Loss @ ฿${currentPrice}`,
+            };
+            addServerLog(`🔒 [SL LOCK] ล็อก ${pos.symbol} ป้องกัน Whipsaw จะไม่เข้าซื้อซ้ำในรอบเดิม`);
+          }
+        } else if (
+          config.useTrailingStop &&
+          config.trailingStopPercent > 0 &&
+          pos.highestPriceSinceEntry &&
+          pos.highestPriceSinceEntry > pos.entryPrice * (1 + (config.trailingStopPercent * 0.5) / 100) &&
+          pos.trailingStopPrice &&
+          currentPrice <= pos.trailingStopPrice
+        ) {
+          exitReason = `Trailing Stop Lock (-${config.trailingStopPercent}% จากจุดสูงสุด ฿${pos.highestPriceSinceEntry.toFixed(2)})`;
         } else if (config.takeProfitPercent > 0 && pnlPercent >= config.takeProfitPercent) {
           exitReason = `Take Profit (+${config.takeProfitPercent}%)`;
         } else {
@@ -450,9 +486,21 @@ async function runServerBotCycle() {
       }
 
       // 2. Check Entries for this symbol
-      const maxPositions = config.maxOpenPositions || 5;
+      const maxPositions = Math.max(1, Math.min(20, config.maxOpenPositions || 5));
       if (serverState.paperAccount.activePositions.length >= maxPositions) {
         break; // Max concurrent slots reached
+      }
+
+      // Check Stop Loss Lock / Whipsaw Protection
+      if (config.useStopLossLock !== false && config.stopLossLocks?.[sym]) {
+        if (latestCandle.zone === 'RED') {
+          delete config.stopLossLocks[sym];
+          saveServerState();
+          addServerLog(`🔓 [SL UNLOCK] ปลดล็อก ${sym} หลังเข้าสู่โซนแดง (เตรียมรอบใหม่)`);
+        } else {
+          // Symbol is locked against re-entry in this cycle
+          continue;
+        }
       }
 
       const crossInfo = getCrossoverInfo(cdcCandles);
@@ -783,6 +831,23 @@ app.post('/api/bot/reset-paper', (req, res) => {
   addServerLog('🔄 รีเซ็ตพอร์ตจำลอง (Paper Account) เป็น ฿100,000 บาท เรียบร้อยแล้ว');
   saveServerState();
   return res.json({ success: true });
+});
+
+// 7.1 Unlock Symbol from Stop Loss Lock
+app.post('/api/bot/unlock-symbol', (req, res) => {
+  try {
+    const { symbol } = req.body;
+    if (!symbol) return res.status(400).json({ error: 'Missing symbol' });
+    const cleanSym = String(symbol).toUpperCase().trim();
+    if (serverState.botConfig.stopLossLocks && serverState.botConfig.stopLossLocks[cleanSym]) {
+      delete serverState.botConfig.stopLossLocks[cleanSym];
+      saveServerState();
+      addServerLog(`🔓 [MANUAL UNLOCK] ปลดล็อก ${cleanSym} สำเร็จ`);
+    }
+    return res.json({ success: true, stopLossLocks: serverState.botConfig.stopLossLocks || {} });
+  } catch (err: any) {
+    return res.status(500).json({ error: sanitizeErrorMessage(err) });
+  }
 });
 
 // 8. Telegram Notification Test & Configuration

@@ -35,6 +35,7 @@ import {
   clearBotServerLogs,
   resetBotServerPaperAccount,
   saveBrokerKeysToServer,
+  unlockSymbolOnServer,
 } from './lib/botApi';
 import {
   fetchStockKlines,
@@ -58,10 +59,13 @@ import { CoffeeDonation } from './components/CoffeeDonation';
  * Calculates equal-weight / fixed / percentage position size based on Total Portfolio Equity.
  */
 function calculateOrderSize(config: BotConfig, account: PaperAccount): number {
-  const maxPositions = config.maxOpenPositions || 5;
+  const maxPositions = Math.max(1, Math.min(20, config.maxOpenPositions || 5));
   if (account.activePositions.length >= maxPositions) return 0;
 
-  const totalPositionsValue = account.activePositions.reduce((sum, p) => sum + (p.usdtInvested || 0), 0);
+  const totalPositionsValue = account.activePositions.reduce(
+    (sum, p) => sum + (p.usdtInvested || p.marginUsdt || 0),
+    0
+  );
   const totalEquity = account.usdtBalance + totalPositionsValue;
 
   const mode = config.positionSizingMode || 'EQUAL_WEIGHT';
@@ -434,6 +438,13 @@ export default function App() {
               onToggleBot={() => handleSaveBotConfig({ ...botConfig, isActive: !botConfig.isActive })}
               onManualBuy={handleManualBuy}
               onManualSell={handleManualSell}
+              onUnlockSymbol={async (symToUnlock) => {
+                await unlockSymbolOnServer(symToUnlock);
+                const updatedLocks = { ...(botConfig.stopLossLocks || {}) };
+                delete updatedLocks[symToUnlock];
+                handleSaveBotConfig({ ...botConfig, stopLossLocks: updatedLocks });
+                showToast(`ปลดล็อกหุ้น ${symToUnlock} เรียบร้อยแล้ว`, 'info');
+              }}
               botLogs={botLogs}
               onClearLogs={() => {
                 localStorage.removeItem('cdc_stock_bot_logs_v2');

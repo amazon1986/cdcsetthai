@@ -29,6 +29,8 @@ export const DEFAULT_BOT_CONFIG: BotConfig = {
   takeProfitPercent: 15,
   useTrailingStop: false,
   trailingStopPercent: 3,
+  useStopLossLock: true, // 🎯 ล็อกไม่ให้เข้าซื้อซ้ำในรอบเดิมเมื่อโดน Stop Loss
+  stopLossLocks: {},
   buyOnSignal: ['BLUE', 'GREEN'], // 🎯 สัญญาณฟ้าแรก หรือ เขียวแรกตามระบบ CDC Action Zone V2 ลุงโฉลก
   sellOnSignal: ['RED'], // 🎯 ขายออกตามสัญญาณแดงแรก (Bearish Cash Out)
   mode: 'PAPER',
@@ -65,6 +67,8 @@ export function getStoredBotConfig(): BotConfig {
       cleanSymbol = 'PTT';
     }
 
+    const maxPos = Math.max(1, Math.min(20, parseInt(parsed.maxOpenPositions || 5, 10)));
+
     return {
       ...DEFAULT_BOT_CONFIG,
       ...parsed,
@@ -72,7 +76,9 @@ export function getStoredBotConfig(): BotConfig {
       mode: parsed.mode === 'SETTRADE_LIVE' ? 'SETTRADE_LIVE' : 'PAPER',
       leverage: isNaN(lev) ? 1 : lev,
       timeframe: parsed.timeframe || '1d',
-      maxOpenPositions: parsed.maxOpenPositions && parsed.maxOpenPositions > 0 ? parsed.maxOpenPositions : 5,
+      maxOpenPositions: isNaN(maxPos) ? 5 : maxPos,
+      useStopLossLock: parsed.useStopLossLock !== undefined ? parsed.useStopLossLock : true,
+      stopLossLocks: parsed.stopLossLocks || {},
       positionSizingMode: parsed.positionSizingMode || 'EQUAL_WEIGHT',
       buyOnSignal: parsed.buyOnSignal && parsed.buyOnSignal.length > 0 ? parsed.buyOnSignal : ['BLUE', 'GREEN'],
       sellOnSignal: parsed.sellOnSignal && parsed.sellOnSignal.length > 0 ? parsed.sellOnSignal : ['RED'],
