@@ -10,6 +10,7 @@ const STORAGE_KEYS = {
   TELEGRAM_CONFIG: 'cdc_telegram_config_v2',
   BOT_LOGS: 'cdc_stock_bot_logs_v2',
   CUSTOM_SYMBOLS: 'cdc_stock_custom_symbols_v2',
+  WATCHLIST: 'cdc_stock_watchlist_v2',
 };
 
 export const DEFAULT_BOT_CONFIG: BotConfig = {
@@ -211,4 +212,40 @@ export function getStoredSymbols(): string[] {
 
 export function saveStoredSymbols(symbols: string[]): void {
   localStorage.setItem(STORAGE_KEYS.CUSTOM_SYMBOLS, JSON.stringify(symbols));
+}
+
+export function getStoredWatchlist(): string[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.WATCHLIST);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+    }
+    // Default watchlist: Top 6 active stocks
+    return ['PTT', 'CPALL', 'DELTA', 'KBANK', 'ADVANC', 'AOT'];
+  } catch {
+    return ['PTT', 'CPALL', 'DELTA', 'KBANK', 'ADVANC', 'AOT'];
+  }
+}
+
+export function saveStoredWatchlist(watchlist: string[]): void {
+  localStorage.setItem(STORAGE_KEYS.WATCHLIST, JSON.stringify(watchlist));
+}
+
+export function toggleWatchlistSymbol(symbol: string): string[] {
+  const current = getStoredWatchlist();
+  const upper = symbol.toUpperCase().trim();
+  let updated: string[];
+  if (current.includes(upper)) {
+    updated = current.filter((s) => s !== upper);
+  } else {
+    updated = [...current, upper];
+  }
+  saveStoredWatchlist(updated);
+  return updated;
+}
+
+export function isSymbolInWatchlist(symbol: string): boolean {
+  const list = getStoredWatchlist();
+  return list.includes(symbol.toUpperCase().trim());
 }

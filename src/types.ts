@@ -152,6 +152,24 @@ export interface BacktestResult {
   equityCurve: { time: number; equity: number; price: number }[];
 }
 
+export interface QualityFactorDetail {
+  score: number;
+  maxScore: number;
+  label: string;
+  detail: string;
+}
+
+export interface QualityScoreBreakdown {
+  totalScore: number;
+  grade: 'S' | 'A' | 'B' | 'C' | 'D';
+  gradeLabel: string;
+  recency: QualityFactorDetail;
+  zone: QualityFactorDetail;
+  trendStrength: QualityFactorDetail;
+  volume24h: QualityFactorDetail;
+  priceChange: QualityFactorDetail;
+}
+
 export interface ScannerStockResult {
   symbol: string;
   currentPrice: number;
@@ -164,6 +182,12 @@ export interface ScannerStockResult {
   emaSlow: number;
   trendStrength: number; // % difference between Fast and Slow EMA
   lastSignalTime: string;
+  barsSinceSignal: number;
+  isFresh: boolean;
+  isWatchlist?: boolean;
+  qualityScore: number;
+  qualityGrade: 'S' | 'A' | 'B' | 'C' | 'D';
+  qualityBreakdown: QualityScoreBreakdown;
 }
 
 export interface SettradeApiKeys {
