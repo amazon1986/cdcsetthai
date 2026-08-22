@@ -54,6 +54,7 @@ import { SettradeSettingsModal } from './components/SettradeSettingsModal';
 import { TradeHistoryTable } from './components/TradeHistoryTable';
 import { TradingStats } from './components/TradingStats';
 import { CoffeeDonation } from './components/CoffeeDonation';
+import { WalletPortfolio } from './components/WalletPortfolio';
 
 /**
  * Calculates equal-weight / fixed / percentage position size based on Total Portfolio Equity.
@@ -83,7 +84,7 @@ function calculateOrderSize(config: BotConfig, account: PaperAccount): number {
 }
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'chart' | 'backtest' | 'scanner' | 'ai' | 'history' | 'stats' | 'coffee'>('chart');
+  const [activeTab, setActiveTab] = useState<'chart' | 'wallet' | 'backtest' | 'scanner' | 'ai' | 'history' | 'stats' | 'coffee'>('chart');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   // Core Central State (Synchronized with Server)
@@ -453,6 +454,28 @@ export default function App() {
               }}
             />
           </div>
+        )}
+
+        {activeTab === 'wallet' && (
+          <WalletPortfolio
+            paperAccount={paperAccount}
+            botConfig={botConfig}
+            tickers={allTickers}
+            onSelectStock={(selectedSymbol) => {
+              handleSaveBotConfig({ ...botConfig, symbol: selectedSymbol });
+              setActiveTab('chart');
+              showToast(`เลือกหุ้น ${selectedSymbol} ขึ้นชาร์ตเรียบร้อย`, 'info');
+            }}
+            onClosePosition={handleCloseSpecificPosition}
+            onResetPaperAccount={handleResetPaperAccount}
+            onUpdateBalance={(newBal) => {
+              const updated = { ...paperAccount, usdtBalance: newBal };
+              setPaperAccount(updated);
+              savePaperAccount(updated);
+              showToast('อัปเดตยอดเงินสดคงเหลือเรียบร้อย', 'info');
+            }}
+            onOpenSettings={() => setIsSettingsOpen(true)}
+          />
         )}
 
         {activeTab === 'backtest' && <BacktestingView />}

@@ -18,8 +18,8 @@ import {
 } from 'lucide-react';
 
 interface HeaderProps {
-  activeTab: 'chart' | 'backtest' | 'scanner' | 'ai' | 'history' | 'stats' | 'coffee';
-  setActiveTab: (tab: 'chart' | 'backtest' | 'scanner' | 'ai' | 'history' | 'stats' | 'coffee') => void;
+  activeTab: 'chart' | 'wallet' | 'history' | 'stats' | 'backtest' | 'scanner' | 'ai' | 'coffee';
+  setActiveTab: (tab: 'chart' | 'wallet' | 'history' | 'stats' | 'backtest' | 'scanner' | 'ai' | 'coffee') => void;
   botConfig: BotConfig;
   paperAccount: PaperAccount;
   onOpenSettings: () => void;
@@ -186,6 +186,18 @@ export const Header: React.FC<HeaderProps> = ({
           >
             <BarChart3 className="w-4 h-4" />
             <span>ชาร์ต & ควบคุมบอท</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('wallet')}
+            className={`flex items-center space-x-2 px-3.5 py-2 rounded-lg text-xs font-medium transition whitespace-nowrap ${
+              activeTab === 'wallet'
+                ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-semibold'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+            }`}
+          >
+            <Wallet className="w-4 h-4" />
+            <span>กระเป๋าเงิน & หุ้น 💼</span>
           </button>
 
           <button

@@ -4,8 +4,13 @@ import {
   fetchStockKlines,
   fetchStockTicker24h,
   POPULAR_STOCKS,
+  SET50_STOCKS,
+  SET100_STOCKS,
+  SSET_STOCKS,
+  MAI_STOCKS,
   ALL_MARKET_STOCKS,
   formatStockPrice,
+  calculateBoardLotShares,
 } from '../lib/stockApi';
 import {
   calculateCDCActionZone,
@@ -47,6 +52,8 @@ import {
   LayoutGrid,
   Info,
   Activity,
+  Layers,
+  Crown,
 } from 'lucide-react';
 
 interface MarketScannerProps {
@@ -54,7 +61,14 @@ interface MarketScannerProps {
   onSelectStock?: (symbol: string) => void;
 }
 
-type MarketScanMode = 'ALL_MARKET' | 'WATCHLIST' | 'CUSTOM';
+export type MarketScanMode =
+  | 'ALL_MARKET'
+  | 'SET100'
+  | 'SET50'
+  | 'SSET'
+  | 'MAI'
+  | 'WATCHLIST'
+  | 'CUSTOM';
 
 type SignalFilterType =
   | 'ALL'
@@ -100,6 +114,10 @@ export const MarketScanner: React.FC<MarketScannerProps> = ({ onSelectCoin, onSe
   // Determine active symbol list based on mode
   const activeSymbolList = useMemo(() => {
     if (scanMode === 'ALL_MARKET') return ALL_MARKET_STOCKS;
+    if (scanMode === 'SET100') return SET100_STOCKS;
+    if (scanMode === 'SET50') return SET50_STOCKS;
+    if (scanMode === 'SSET') return SSET_STOCKS;
+    if (scanMode === 'MAI') return MAI_STOCKS;
     if (scanMode === 'WATCHLIST') return watchlist.length > 0 ? watchlist : ['PTT', 'CPALL', 'DELTA'];
     return customList;
   }, [scanMode, watchlist, customList]);
@@ -451,96 +469,153 @@ export const MarketScanner: React.FC<MarketScannerProps> = ({ onSelectCoin, onSe
           </div>
         </div>
 
-        {/* ================= 1. SCAN SCOPE SELECTOR (ALL MARKET / WATCHLIST / CUSTOM) ================= */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        {/* ================= 1. SCAN SCOPE SELECTOR (ALL MARKET / SET100 / SET50 / SSET / MAI / WATCHLIST / CUSTOM) ================= */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-2.5">
           {/* Mode 1: All Market */}
           <button
             onClick={() => setScanMode('ALL_MARKET')}
-            className={`p-3.5 rounded-2xl border transition text-left flex items-center justify-between cursor-pointer ${
+            className={`p-3 rounded-2xl border transition text-left flex flex-col justify-between cursor-pointer ${
               scanMode === 'ALL_MARKET'
-                ? 'bg-gradient-to-r from-emerald-950/60 to-slate-900 border-emerald-500/60 shadow-lg shadow-emerald-950/30'
+                ? 'bg-gradient-to-br from-emerald-950/80 to-slate-900 border-emerald-500/70 shadow-md shadow-emerald-950/40'
                 : 'bg-slate-950/60 hover:bg-slate-800/40 border-slate-800/80 text-slate-400'
             }`}
           >
-            <div className="flex items-center space-x-3">
-              <div
-                className={`p-2.5 rounded-xl ${
-                  scanMode === 'ALL_MARKET' ? 'bg-emerald-500 text-slate-950' : 'bg-slate-800 text-slate-400'
-                }`}
-              >
-                <Globe className="w-5 h-5" />
-              </div>
-              <div>
-                <div className="flex items-center space-x-1.5">
-                  <span className="text-xs font-bold text-white">🌐 ทั้งตลาด (All Market)</span>
-                  <span className="text-[10px] px-2 py-0.2 rounded-full bg-emerald-500/20 text-emerald-400 font-mono font-bold">
-                    {ALL_MARKET_STOCKS.length} หุ้น
-                  </span>
-                </div>
-                <p className="text-[11px] text-slate-400 mt-0.5">ครอบคลุมหุ้นกลุ่ม SET100 และสภาพคล่องสูง</p>
-              </div>
+            <div className="flex items-center justify-between w-full mb-1">
+              <Globe className={`w-4 h-4 ${scanMode === 'ALL_MARKET' ? 'text-emerald-400' : 'text-slate-400'}`} />
+              <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-emerald-500/20 text-emerald-400 font-mono font-bold">
+                {ALL_MARKET_STOCKS.length}
+              </span>
             </div>
-            {scanMode === 'ALL_MARKET' && <Check className="w-4 h-4 text-emerald-400 shrink-0" />}
+            <div>
+              <span className="text-xs font-bold text-white block">All Market</span>
+              <span className="text-[9px] text-slate-400">SET + mai</span>
+            </div>
           </button>
 
-          {/* Mode 2: Watchlist */}
+          {/* Mode 2: SET100 */}
+          <button
+            onClick={() => setScanMode('SET100')}
+            className={`p-3 rounded-2xl border transition text-left flex flex-col justify-between cursor-pointer ${
+              scanMode === 'SET100'
+                ? 'bg-gradient-to-br from-blue-950/80 to-slate-900 border-blue-500/70 shadow-md shadow-blue-950/40'
+                : 'bg-slate-950/60 hover:bg-slate-800/40 border-slate-800/80 text-slate-400'
+            }`}
+          >
+            <div className="flex items-center justify-between w-full mb-1">
+              <Layers className={`w-4 h-4 ${scanMode === 'SET100' ? 'text-blue-400' : 'text-slate-400'}`} />
+              <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-blue-500/20 text-blue-400 font-mono font-bold">
+                {SET100_STOCKS.length}
+              </span>
+            </div>
+            <div>
+              <span className="text-xs font-bold text-white block">SET100</span>
+              <span className="text-[9px] text-slate-400">100 หุ้นใหญ่</span>
+            </div>
+          </button>
+
+          {/* Mode 3: SET50 */}
+          <button
+            onClick={() => setScanMode('SET50')}
+            className={`p-3 rounded-2xl border transition text-left flex flex-col justify-between cursor-pointer ${
+              scanMode === 'SET50'
+                ? 'bg-gradient-to-br from-amber-950/80 to-slate-900 border-amber-500/70 shadow-md shadow-amber-950/40'
+                : 'bg-slate-950/60 hover:bg-slate-800/40 border-slate-800/80 text-slate-400'
+            }`}
+          >
+            <div className="flex items-center justify-between w-full mb-1">
+              <Crown className={`w-4 h-4 ${scanMode === 'SET50' ? 'text-amber-400' : 'text-slate-400'}`} />
+              <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-amber-500/20 text-amber-400 font-mono font-bold">
+                {SET50_STOCKS.length}
+              </span>
+            </div>
+            <div>
+              <span className="text-xs font-bold text-white block">SET50</span>
+              <span className="text-[9px] text-slate-400">Blue-Chip</span>
+            </div>
+          </button>
+
+          {/* Mode 4: sSET */}
+          <button
+            onClick={() => setScanMode('SSET')}
+            className={`p-3 rounded-2xl border transition text-left flex flex-col justify-between cursor-pointer ${
+              scanMode === 'SSET'
+                ? 'bg-gradient-to-br from-purple-950/80 to-slate-900 border-purple-500/70 shadow-md shadow-purple-950/40'
+                : 'bg-slate-950/60 hover:bg-slate-800/40 border-slate-800/80 text-slate-400'
+            }`}
+          >
+            <div className="flex items-center justify-between w-full mb-1">
+              <Sparkles className={`w-4 h-4 ${scanMode === 'SSET' ? 'text-purple-400' : 'text-slate-400'}`} />
+              <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-purple-500/20 text-purple-400 font-mono font-bold">
+                {SSET_STOCKS.length}
+              </span>
+            </div>
+            <div>
+              <span className="text-xs font-bold text-white block">sSET</span>
+              <span className="text-[9px] text-slate-400">Small-Cap</span>
+            </div>
+          </button>
+
+          {/* Mode 5: mai */}
+          <button
+            onClick={() => setScanMode('MAI')}
+            className={`p-3 rounded-2xl border transition text-left flex flex-col justify-between cursor-pointer ${
+              scanMode === 'MAI'
+                ? 'bg-gradient-to-br from-rose-950/80 to-slate-900 border-rose-500/70 shadow-md shadow-rose-950/40'
+                : 'bg-slate-950/60 hover:bg-slate-800/40 border-slate-800/80 text-slate-400'
+            }`}
+          >
+            <div className="flex items-center justify-between w-full mb-1">
+              <Zap className={`w-4 h-4 ${scanMode === 'MAI' ? 'text-rose-400' : 'text-slate-400'}`} />
+              <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-rose-500/20 text-rose-400 font-mono font-bold">
+                {MAI_STOCKS.length}
+              </span>
+            </div>
+            <div>
+              <span className="text-xs font-bold text-white block">mai</span>
+              <span className="text-[9px] text-slate-400">Growth Stocks</span>
+            </div>
+          </button>
+
+          {/* Mode 6: Watchlist */}
           <button
             onClick={() => setScanMode('WATCHLIST')}
-            className={`p-3.5 rounded-2xl border transition text-left flex items-center justify-between cursor-pointer ${
+            className={`p-3 rounded-2xl border transition text-left flex flex-col justify-between cursor-pointer ${
               scanMode === 'WATCHLIST'
-                ? 'bg-gradient-to-r from-amber-950/60 to-slate-900 border-amber-500/60 shadow-lg shadow-amber-950/30'
+                ? 'bg-gradient-to-br from-yellow-950/80 to-slate-900 border-yellow-500/70 shadow-md shadow-yellow-950/40'
                 : 'bg-slate-950/60 hover:bg-slate-800/40 border-slate-800/80 text-slate-400'
             }`}
           >
-            <div className="flex items-center space-x-3">
-              <div
-                className={`p-2.5 rounded-xl ${
-                  scanMode === 'WATCHLIST' ? 'bg-amber-400 text-slate-950' : 'bg-slate-800 text-slate-400'
-                }`}
-              >
-                <Bookmark className="w-5 h-5" />
-              </div>
-              <div>
-                <div className="flex items-center space-x-1.5">
-                  <span className="text-xs font-bold text-white">⭐ รายการติดตาม (Watchlist)</span>
-                  <span className="text-[10px] px-2 py-0.2 rounded-full bg-amber-500/20 text-amber-300 font-mono font-bold">
-                    {watchlist.length} หุ้น
-                  </span>
-                </div>
-                <p className="text-[11px] text-slate-400 mt-0.5">เฉพาะหุ้นที่คุณกดติดดาวไว้เพื่อเฝ้าระวัง</p>
-              </div>
+            <div className="flex items-center justify-between w-full mb-1">
+              <Star className={`w-4 h-4 ${scanMode === 'WATCHLIST' ? 'text-yellow-400' : 'text-slate-400'}`} />
+              <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-yellow-500/20 text-yellow-400 font-mono font-bold">
+                {watchlist.length}
+              </span>
             </div>
-            {scanMode === 'WATCHLIST' && <Check className="w-4 h-4 text-amber-400 shrink-0" />}
+            <div>
+              <span className="text-xs font-bold text-white block">Watchlist</span>
+              <span className="text-[9px] text-slate-400">ติดดาวไว้</span>
+            </div>
           </button>
 
-          {/* Mode 3: Custom List */}
+          {/* Mode 7: Custom List */}
           <button
             onClick={() => setScanMode('CUSTOM')}
-            className={`p-3.5 rounded-2xl border transition text-left flex items-center justify-between cursor-pointer ${
+            className={`p-3 rounded-2xl border transition text-left flex flex-col justify-between cursor-pointer ${
               scanMode === 'CUSTOM'
-                ? 'bg-gradient-to-r from-cyan-950/60 to-slate-900 border-cyan-500/60 shadow-lg shadow-cyan-950/30'
+                ? 'bg-gradient-to-br from-cyan-950/80 to-slate-900 border-cyan-500/70 shadow-md shadow-cyan-950/40'
                 : 'bg-slate-950/60 hover:bg-slate-800/40 border-slate-800/80 text-slate-400'
             }`}
           >
-            <div className="flex items-center space-x-3">
-              <div
-                className={`p-2.5 rounded-xl ${
-                  scanMode === 'CUSTOM' ? 'bg-cyan-400 text-slate-950' : 'bg-slate-800 text-slate-400'
-                }`}
-              >
-                <SlidersHorizontal className="w-5 h-5" />
-              </div>
-              <div>
-                <div className="flex items-center space-x-1.5">
-                  <span className="text-xs font-bold text-white">📝 กำหนดเอง (Custom List)</span>
-                  <span className="text-[10px] px-2 py-0.2 rounded-full bg-cyan-500/20 text-cyan-300 font-mono font-bold">
-                    {customList.length} หุ้น
-                  </span>
-                </div>
-                <p className="text-[11px] text-slate-400 mt-0.5">รายชื่อหุ้นไทยที่คุณเพิ่ม/ลดเองตามต้องการ</p>
-              </div>
+            <div className="flex items-center justify-between w-full mb-1">
+              <SlidersHorizontal className={`w-4 h-4 ${scanMode === 'CUSTOM' ? 'text-cyan-400' : 'text-slate-400'}`} />
+              <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-cyan-500/20 text-cyan-400 font-mono font-bold">
+                {customList.length}
+              </span>
             </div>
-            {scanMode === 'CUSTOM' && <Check className="w-4 h-4 text-cyan-400 shrink-0" />}
+            <div>
+              <span className="text-xs font-bold text-white block">Custom</span>
+              <span className="text-[9px] text-slate-400">กำหนดเอง</span>
+            </div>
           </button>
         </div>
 

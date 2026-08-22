@@ -213,6 +213,8 @@ export interface SettradeApiKeys {
   apiSecret: string;
   appCode?: string;
   brokerId?: string;
+  accountNo?: string;
+  pin?: string;
 }
 
 export interface AiAnalysisResponse {

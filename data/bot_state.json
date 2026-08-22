@@ -1,7 +1,7 @@
 {
   "botConfig": {
     "id": "default_bot",
-    "symbol": "AOT",
+    "symbol": "CPALL",
     "timeframe": "1d",
     "fastEmaPeriod": 12,
     "slowEmaPeriod": 26,
@@ -10,11 +10,11 @@
     "balancePercent": 20,
     "positionSizingMode": "EQUAL_WEIGHT",
     "leverage": 1,
-    "maxOpenPositions": 5,
+    "maxOpenPositions": 10,
     "stopLossPercent": 5,
     "takeProfitPercent": 15,
-    "useTrailingStop": false,
-    "trailingStopPercent": 3,
+    "useTrailingStop": true,
+    "trailingStopPercent": 7,
     "buyOnSignal": [
       "BLUE",
       "GREEN"
@@ -25,12 +25,14 @@
     "mode": "PAPER",
     "scanMode": "SINGLE",
     "directionMode": "LONG_ONLY",
-    "isActive": false,
+    "isActive": true,
     "telegramConfig": {
       "botToken": "8699262679:AAE_m9WPAiAqrEG0U1IACEoy2NjEUIveoGU",
       "chatId": "8035615011",
-      "isEnabled": true
-    }
+      "isEnabled": false
+    },
+    "useStopLossLock": true,
+    "stopLossLocks": {}
   },
   "paperAccount": {
     "usdtBalance": 100000,
@@ -43,6 +45,14 @@
   },
   "tradeHistory": [],
   "botLogs": [
+    "[03:47:15] ⚙️ อัปเดตการตั้งค่าบอท: CPALL | TF: 1d | สถานะ: เปิดทำงาน 🟢",
+    "[03:44:52] ⚙️ อัปเดตการตั้งค่าบอท: TLI | TF: 1d | สถานะ: เปิดทำงาน 🟢",
+    "[03:31:52] ⚙️ อัปเดตการตั้งค่าบอท: AOT | TF: 1d | สถานะ: เปิดทำงาน 🟢",
+    "[02:59:53] ⚙️ อัปเดตการตั้งค่าบอท: AOT | TF: 1d | สถานะ: หยุด 🔴",
+    "[02:58:13] ⚙️ อัปเดตการตั้งค่าบอท: AOT | TF: 1d | สถานะ: เปิดทำงาน 🟢",
+    "[02:56:55] 🔄 รีเซ็ตพอร์ตจำลอง (Paper Account) เป็น ฿100,000 บาท เรียบร้อยแล้ว",
+    "[02:54:07] ⚙️ อัปเดตการตั้งค่าบอท: AOT | TF: 1d | สถานะ: เปิดทำงาน 🟢",
+    "[02:54:02] ⚙️ อัปเดตการตั้งค่าบอท: AOT | TF: 1d | สถานะ: หยุด 🔴",
     "[04:05:29] ⚙️ อัปเดตการตั้งค่าบอท: AOT | TF: 1d | สถานะ: หยุด 🔴",
     "[04:01:54] ⚙️ อัปเดตการตั้งค่าบอท: AOT | TF: 1d | สถานะ: หยุด 🔴",
     "[03:37:02] ⚙️ อัปเดตการตั้งค่าบอท: AOT | TF: 1d | สถานะ: หยุด 🔴",

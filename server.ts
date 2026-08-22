@@ -8,7 +8,7 @@ import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
 import { BotConfig, PaperAccount, PaperPosition, ExecutedTrade, KlineData, Timeframe } from './src/types';
 import { calculateCDCActionZone, getCrossoverInfo } from './src/lib/cdcIndicator';
-import { POPULAR_STOCKS, toStockSymbol } from './src/lib/stockApi';
+import { POPULAR_STOCKS, ALL_MARKET_STOCKS, calculateBoardLotShares, toStockSymbol } from './src/lib/stockApi';
 
 const app = express();
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
@@ -66,6 +66,8 @@ interface ServerState {
     apiSecret: string;
     appCode?: string;
     brokerId?: string;
+    accountNo?: string;
+    pin?: string;
     isTestnet?: boolean;
   };
 }
@@ -348,7 +350,7 @@ async function runServerBotCycle() {
   try {
     const dirMode = config.directionMode ?? 'LONG_ONLY';
     const isMultiScan = config.scanMode === 'MULTI_SCAN';
-    const symbolsToEvaluate = isMultiScan ? POPULAR_STOCKS.slice(0, 15) : [config.symbol];
+    const symbolsToEvaluate = isMultiScan ? ALL_MARKET_STOCKS : [config.symbol];
 
     for (const sym of symbolsToEvaluate) {
       if (!serverState.botConfig.isActive) break;
@@ -453,7 +455,7 @@ async function runServerBotCycle() {
             leverage: posLev,
             pnlUsdt: Number(pnlUsdt.toFixed(2)),
             pnlPercent: Number(pnlPercent.toFixed(2)),
-            reason: `[Cloud 24/7] ${exitReason}`,
+            reason: `[Auto 100%] ${exitReason}`,
             timestamp: Date.now(),
             mode: config.mode,
           };
@@ -464,7 +466,7 @@ async function runServerBotCycle() {
           }
 
           addServerLog(
-            `🛑 [SERVER 24/7 ${exitReason.includes('Liquidation') ? 'LIQUIDATE' : 'AUTO CLOSE'} ${pos.side}] ${pos.symbol} @ ฿${currentPrice} | PnL: ${pnlUsdt >= 0 ? '+' : ''}฿${pnlUsdt.toFixed(2)} (${pnlPercent.toFixed(2)}%) | เหตุผล: ${exitReason}`
+            `🛑 [AUTO CLOSE ${pos.side}] ${pos.symbol} @ ฿${currentPrice} | PnL: ${pnlUsdt >= 0 ? '+' : ''}฿${pnlUsdt.toFixed(2)} (${pnlPercent.toFixed(2)}%) | เหตุผล: ${exitReason}`
           );
           saveServerState();
 
@@ -473,9 +475,11 @@ async function runServerBotCycle() {
             `${isWin ? '🎯' : '🛑'} <b>[CDC Stock Bot] ปิดสถานะหุ้น (${pos.side})</b>\n\n` +
             `📈 <b>หุ้น:</b> <code>${pos.symbol}</code>\n` +
             `💰 <b>ราคาปิด:</b> ฿${currentPrice.toFixed(2)}\n` +
-            `💵 <b>ผลตอบแทน:</b> ${isWin ? '+' : ''}฿${pnlUsdt.toFixed(2)} (${pnlPercent >= 0 ? '+' : ''}${pnlPercent.toFixed(2)}%)\n` +
+            `📊 <b>จำนวน:</b> ${pos.amount.toLocaleString()} หุ้น (${(pos.amount / 100).toLocaleString()} Lots)\n` +
+            `💵 <b>ผลตอบแทน:</b> ${isWin ? '+' : ''}฿${pnlUsdt.toLocaleString('en-US', { minimumFractionDigits: 2 })} (${pnlPercent >= 0 ? '+' : ''}${pnlPercent.toFixed(2)}%)\n` +
             `📝 <b>เหตุผล:</b> ${exitReason}\n` +
             `⏱️ <b>ไทม์เฟรม:</b> ${config.timeframe}\n` +
+            `💼 <b>โหมด:</b> ${config.mode === 'SETTRADE_LIVE' ? '⚡ InnovestX Live' : '🟢 Paper Trading'}\n` +
             `📅 <b>เวลา:</b> ${new Date().toLocaleTimeString('th-TH')}`
           );
         } else {
@@ -525,23 +529,34 @@ async function runServerBotCycle() {
       }
 
       if (targetSide) {
-        const tradeUsdt = calculateOrderSize(config, serverState.paperAccount);
+        const rawBudget = calculateOrderSize(config, serverState.paperAccount);
         const lev = Math.min(Math.max(1, config.leverage || 1), 10);
-        if (tradeUsdt >= 10 && serverState.paperAccount.usdtBalance >= tradeUsdt) {
-          const notionalValue = tradeUsdt * lev;
-          const sharesAmount = Math.floor(notionalValue / currentPrice);
+        const notionalTarget = rawBudget * lev;
+
+        // SET Board Lot (100 shares) Validation
+        const lotInfo = calculateBoardLotShares(notionalTarget, currentPrice);
+        if (!lotInfo.isValidLot) {
+          addServerLog(`⚠️ [BOARD LOT SKIPPED] ${sym} @ ฿${currentPrice} เงินลงทุน ฿${rawBudget.toFixed(2)} ไม่พอสำหรับ 1 Lot (100 หุ้น = ฿${(currentPrice * 100).toFixed(2)})`);
+          continue;
+        }
+
+        const sharesAmount = lotInfo.shares;
+        const actualTradeUsdt = lotInfo.actualCostThb / lev;
+        const notionalValue = lotInfo.actualCostThb;
+
+        if (actualTradeUsdt >= 10 && serverState.paperAccount.usdtBalance >= actualTradeUsdt) {
           const liqPrice =
             targetSide === 'LONG' ? currentPrice * (1 - 0.9 / lev) : currentPrice * (1 + 0.9 / lev);
 
-          serverState.paperAccount.usdtBalance -= tradeUsdt;
+          serverState.paperAccount.usdtBalance -= actualTradeUsdt;
 
           const newPos: PaperPosition = {
             symbol: sym,
             side: targetSide,
             entryPrice: currentPrice,
             amount: sharesAmount,
-            usdtInvested: tradeUsdt,
-            marginUsdt: tradeUsdt,
+            usdtInvested: actualTradeUsdt,
+            marginUsdt: actualTradeUsdt,
             leverage: lev,
             liquidationPrice: Number(liqPrice.toFixed(2)),
             entryTime: Date.now(),
@@ -560,14 +575,14 @@ async function runServerBotCycle() {
             amount: sharesAmount,
             usdtValue: notionalValue,
             leverage: lev,
-            reason: `[Cloud 24/7 Entry] CDC ${latestCandle.colorNameTh} (${targetSide})`,
+            reason: `[Auto 100% Entry] CDC ${latestCandle.colorNameTh} (${targetSide})`,
             timestamp: Date.now(),
             mode: config.mode,
           };
 
           serverState.tradeHistory.unshift(trade);
           addServerLog(
-            `🚀 [SERVER 24/7 OPEN ${targetSide}] ${sym} @ ฿${currentPrice} | ทุน ฿${tradeUsdt.toFixed(2)} บาท (${sharesAmount.toLocaleString()} หุ้น) | สัญญาณ ${latestCandle.colorNameTh}`
+            `🚀 [AUTO OPEN ${targetSide}] ${sym} @ ฿${currentPrice} | ทุน ฿${actualTradeUsdt.toFixed(2)} บาท (${sharesAmount.toLocaleString()} หุ้น / ${(sharesAmount / 100).toLocaleString()} Lots) | สัญญาณ ${latestCandle.colorNameTh}`
           );
           saveServerState();
 
@@ -575,10 +590,11 @@ async function runServerBotCycle() {
             `🚀 <b>[CDC Action Zone V2] เข้าซื้อหุ้น (${targetSide})</b>\n\n` +
             `📈 <b>หุ้น:</b> <code>${sym}</code>\n` +
             `💰 <b>ราคาเข้า:</b> ฿${currentPrice.toFixed(2)}\n` +
-            `📊 <b>จำนวน:</b> ${sharesAmount.toLocaleString()} หุ้น\n` +
-            `💵 <b>เงินลงทุน:</b> ฿${tradeUsdt.toLocaleString()} THB\n` +
-            `🎯 <b>สัญญาณ:</b> ${latestCandle.colorNameTh}\n` +
+            `📊 <b>จำนวน:</b> ${sharesAmount.toLocaleString()} หุ้น (${(sharesAmount / 100).toLocaleString()} Lots)\n` +
+            `💵 <b>เงินลงทุน:</b> ฿${actualTradeUsdt.toLocaleString('en-US', { minimumFractionDigits: 2 })} THB\n` +
+            `🎯 <b>สัญญาณ:</b> ${latestCandle.colorNameTh} (CDC Action Zone)\n` +
             `⏱️ <b>ไทม์เฟรม:</b> ${config.timeframe}\n` +
+            `💼 <b>โหมด:</b> ${config.mode === 'SETTRADE_LIVE' ? '⚡ InnovestX Live' : '🟢 Paper Trading'}\n` +
             `📅 <b>เวลา:</b> ${new Date().toLocaleTimeString('th-TH')}`
           );
         }
@@ -674,20 +690,35 @@ app.post('/api/bot/manual-order', (req, res) => {
     }
 
     const lev = Math.min(Math.max(1, serverState.botConfig.leverage || 1), 10);
-    const notionalValue = amountUsdt * lev;
-    const sharesAmount = Math.floor(notionalValue / currentPrice);
+    const notionalTarget = amountUsdt * lev;
+    const lotInfo = calculateBoardLotShares(notionalTarget, currentPrice);
+
+    if (!lotInfo.isValidLot) {
+      return res.status(400).json({
+        error: `จำนวนเงินไม่เพียงพอสำหรับ 1 Board Lot (ขั้นต่ำ 100 หุ้น = ฿${(currentPrice * 100).toFixed(2)} บาท)`,
+      });
+    }
+
+    const sharesAmount = lotInfo.shares;
+    const actualInvested = lotInfo.actualCostThb / lev;
+    const notionalValue = lotInfo.actualCostThb;
+
+    if (serverState.paperAccount.usdtBalance < actualInvested) {
+      return res.status(400).json({ error: 'ยอดเงินคงเหลือไม่เพียงพอ' });
+    }
+
     const liqPrice =
       side === 'LONG' ? currentPrice * (1 - 0.9 / lev) : currentPrice * (1 + 0.9 / lev);
 
-    serverState.paperAccount.usdtBalance -= amountUsdt;
+    serverState.paperAccount.usdtBalance -= actualInvested;
 
     const newPos: PaperPosition = {
       symbol,
       side,
       entryPrice: currentPrice,
       amount: sharesAmount,
-      usdtInvested: amountUsdt,
-      marginUsdt: amountUsdt,
+      usdtInvested: actualInvested,
+      marginUsdt: actualInvested,
       leverage: lev,
       liquidationPrice: Number(liqPrice.toFixed(2)),
       entryTime: Date.now(),
@@ -706,14 +737,14 @@ app.post('/api/bot/manual-order', (req, res) => {
       amount: sharesAmount,
       usdtValue: notionalValue,
       leverage: lev,
-      reason: `[Manual Order] เปิด ${side} ${sharesAmount.toLocaleString()} หุ้น ด้วยตนเอง`,
+      reason: `[Manual Order] เปิด ${side} ${sharesAmount.toLocaleString()} หุ้น (${(sharesAmount / 100).toLocaleString()} Lots) ด้วยตนเอง`,
       timestamp: Date.now(),
       mode: serverState.botConfig.mode,
     };
 
     serverState.tradeHistory.unshift(trade);
     addServerLog(
-      `✋ [MANUAL ORDER] เปิด ${side} ${symbol} @ ฿${currentPrice} | ทุน ฿${amountUsdt} บาท (${sharesAmount.toLocaleString()} หุ้น)`
+      `✋ [MANUAL ORDER] เปิด ${side} ${symbol} @ ฿${currentPrice} | ทุน ฿${actualInvested.toFixed(2)} บาท (${sharesAmount.toLocaleString()} หุ้น / ${(sharesAmount / 100).toLocaleString()} Lots)`
     );
     saveServerState();
 
@@ -721,8 +752,9 @@ app.post('/api/bot/manual-order', (req, res) => {
       `✋ <b>[CDC Stock Bot] เปิดออเดอร์ด้วยตนเอง (${side})</b>\n\n` +
       `📈 <b>หุ้น:</b> <code>${symbol}</code>\n` +
       `💰 <b>ราคาเข้า:</b> ฿${currentPrice.toFixed(2)}\n` +
-      `📊 <b>จำนวน:</b> ${sharesAmount.toLocaleString()} หุ้น\n` +
-      `💵 <b>เงินลงทุน:</b> ฿${amountUsdt.toLocaleString()} THB\n` +
+      `📊 <b>จำนวน:</b> ${sharesAmount.toLocaleString()} หุ้น (${(sharesAmount / 100).toLocaleString()} Lots)\n` +
+      `💵 <b>เงินลงทุน:</b> ฿${actualInvested.toLocaleString('en-US', { minimumFractionDigits: 2 })} THB\n` +
+      `💼 <b>โหมด:</b> ${serverState.botConfig.mode === 'SETTRADE_LIVE' ? '⚡ InnovestX Live' : '🟢 Paper Trading'}\n` +
       `📅 <b>เวลา:</b> ${new Date().toLocaleTimeString('th-TH')}`
     );
 
@@ -798,8 +830,10 @@ app.post('/api/bot/close-position', async (req, res) => {
       `${isWin ? '🎯' : '🛑'} <b>[CDC Stock Bot] ปิดสถานะด้วยตนเอง (${pos.side})</b>\n\n` +
       `📈 <b>หุ้น:</b> <code>${pos.symbol}</code>\n` +
       `💰 <b>ราคาปิด:</b> ฿${currentPrice.toFixed(2)}\n` +
-      `💵 <b>ผลตอบแทน:</b> ${isWin ? '+' : ''}฿${pnlUsdt.toFixed(2)} (${pnlPercent >= 0 ? '+' : ''}${pnlPercent.toFixed(2)}%)\n` +
+      `📊 <b>จำนวน:</b> ${pos.amount.toLocaleString()} หุ้น (${(pos.amount / 100).toLocaleString()} Lots)\n` +
+      `💵 <b>ผลตอบแทน:</b> ${isWin ? '+' : ''}฿${pnlUsdt.toLocaleString('en-US', { minimumFractionDigits: 2 })} (${pnlPercent >= 0 ? '+' : ''}${pnlPercent.toFixed(2)}%)\n` +
       `📝 <b>เหตุผล:</b> ${reason}\n` +
+      `💼 <b>โหมด:</b> ${serverState.botConfig.mode === 'SETTRADE_LIVE' ? '⚡ InnovestX Live' : '🟢 Paper Trading'}\n` +
       `📅 <b>เวลา:</b> ${new Date().toLocaleTimeString('th-TH')}`
     );
 
@@ -1100,10 +1134,12 @@ app.get('/api/stock/depth', handleDepth);
 
 const handleBalances = async (req: express.Request, res: express.Response) => {
   try {
+    const { apiKey, apiSecret, brokerId, accountNo } = req.body || {};
     return res.json({
       success: true,
       canTrade: true,
-      accountType: 'SETTRADE_OPEN_API',
+      accountType: brokerId === '023' ? 'INNOVESTX_OPEN_API' : 'SETTRADE_OPEN_API',
+      accountNo: accountNo || 'INVX-MAIN',
       balances: [{ asset: 'THB', free: '1000000.00', locked: '0.00' }],
     });
   } catch (error: any) {
@@ -1115,11 +1151,11 @@ app.post('/api/stock/balances', handleBalances);
 
 const handleOrder = async (req: express.Request, res: express.Response) => {
   try {
-    const { apiKey, symbol, side, quantity, price, orderType = 'MARKET' } = req.body;
+    const { apiKey, symbol, side, quantity, price, orderType = 'MARKET', pin } = req.body;
     return res.json({
       success: true,
       order: {
-        orderId: `set_${Date.now()}`,
+        orderId: `invx_${Date.now()}`,
         symbol: symbol,
         side: side,
         quantity: quantity,
@@ -1136,13 +1172,21 @@ app.post('/api/stock/order', orderLimiter, handleOrder);
 
 const handleKeys = (req: express.Request, res: express.Response) => {
   try {
-    const { apiKey, apiSecret, appCode, brokerId } = req.body;
+    const { apiKey, apiSecret, appCode, brokerId, accountNo, pin } = req.body;
     if (!apiKey || !apiSecret) {
       return res.status(400).json({ error: 'กรุณากรอก App Key และ App Secret ให้ครบถ้วน' });
     }
-    serverState.liveApiKeys = { apiKey, apiSecret, appCode, brokerId, isTestnet: true };
+    serverState.liveApiKeys = {
+      apiKey,
+      apiSecret,
+      appCode,
+      brokerId: brokerId || '023',
+      accountNo,
+      pin,
+      isTestnet: brokerId === 'SANDBOX',
+    };
     saveServerState();
-    addServerLog(`🔑 ซิงก์ Settrade Open API Key ขึ้นเซิร์ฟเวอร์เรียบร้อย`);
+    addServerLog(`🔑 ซิงก์ InnovestX / Settrade Open API Key (พอร์ต: ${accountNo || 'Default'}) ขึ้นเซิร์ฟเวอร์เรียบร้อย`);
     return res.json({ success: true });
   } catch (err: any) {
     return res.status(500).json({ error: sanitizeErrorMessage(err) });

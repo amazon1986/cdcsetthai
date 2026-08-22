@@ -188,124 +188,53 @@ export function formatStockAmount(amount: number | undefined | null): string {
 /**
  * Popular SET50 Thai Stocks
  */
-export const POPULAR_STOCKS = [
-  'PTT',
-  'CPALL',
-  'AOT',
-  'DELTA',
-  'ADVANC',
-  'BDMS',
-  'KBANK',
-  'SCB',
-  'GULF',
-  'PTTEP',
-  'TRUE',
-  'KTB',
-  'CPF',
-  'HMPRO',
-  'SCC',
-  'BBL',
-  'MTC',
-  'TOP',
-  'GPSC',
-  'INTUCH',
-  'OR',
-  'BANPU',
-  'IVL',
-  'MINT',
-  'BEM',
-  'WHA',
-  'CBG',
-  'KTC',
-  'SAWAD',
-  'CPN',
+export const SET50_STOCKS = [
+  'PTT', 'CPALL', 'AOT', 'DELTA', 'ADVANC', 'BDMS', 'KBANK', 'SCB', 'GULF', 'PTTEP',
+  'TRUE', 'KTB', 'CPF', 'HMPRO', 'SCC', 'BBL', 'MTC', 'TOP', 'GPSC', 'INTUCH',
+  'OR', 'BANPU', 'IVL', 'MINT', 'BEM', 'WHA', 'CBG', 'KTC', 'SAWAD', 'CPN',
+  'CRC', 'TTB', 'TIDLOR', 'SCGP', 'BTS', 'LH', 'BCP', 'TU', 'COM7', 'AMATA',
+  'CENTEL', 'EA', 'BGRIM', 'GLOBAL', 'BCH', 'RATCH', 'EGCO', 'TCAP', 'KKP', 'TLI'
+];
+
+export const POPULAR_STOCKS = SET50_STOCKS;
+
+/**
+ * SET100 Stocks (Index Constituents)
+ */
+export const SET100_STOCKS = [
+  ...SET50_STOCKS,
+  'PLANB', 'AP', 'SPALI', 'TISCO', 'MEGA', 'SPRC', 'HANA', 'KCE', 'OSP', 'CK',
+  'ITC', 'JMT', 'JMART', 'AWC', 'CHG', 'TASCO', 'SJWD', 'STA', 'VGI', 'ERW',
+  'BTG', 'SIRI', 'PR9', 'QH', 'BA', 'ICHI', 'SAPPE', 'MAJOR', 'SINGER', 'MOSHI',
+  'FORTH', 'DOHOME', 'BLA', 'THG', 'BAM', 'TLI', 'PSL', 'RCL', 'TTA', 'AURA',
+  'NSL', 'MASTER', 'KLINIQ', 'SAFE', 'COCOCO', 'SAV', 'PLUS', 'SC', 'ORI', 'SNNP'
 ];
 
 /**
- * Comprehensive All Market (SET100 & Major Liquid Assets)
+ * sSET (Small-Cap High Potential SET Stocks)
  */
-export const ALL_MARKET_STOCKS = [
-  'PTT',
-  'CPALL',
-  'AOT',
-  'DELTA',
-  'ADVANC',
-  'BDMS',
-  'KBANK',
-  'SCB',
-  'GULF',
-  'PTTEP',
-  'TRUE',
-  'KTB',
-  'CPF',
-  'HMPRO',
-  'SCC',
-  'BBL',
-  'MTC',
-  'TOP',
-  'GPSC',
-  'INTUCH',
-  'OR',
-  'BANPU',
-  'IVL',
-  'MINT',
-  'BEM',
-  'WHA',
-  'CBG',
-  'KTC',
-  'SAWAD',
-  'CPN',
-  'CRC',
-  'TTB',
-  'TIDLOR',
-  'SCGP',
-  'BTS',
-  'LH',
-  'BCP',
-  'TU',
-  'COM7',
-  'AMATA',
-  'CENTEL',
-  'EA',
-  'PLANB',
-  'AP',
-  'SPALI',
-  'TISCO',
-  'MEGA',
-  'SPRC',
-  'HANA',
-  'KCE',
-  'OSP',
-  'CK',
-  'ITC',
-  'JMT',
-  'JMART',
-  'AWC',
-  'BGRIM',
-  'GLOBAL',
-  'BCH',
-  'CHG',
-  'RATCH',
-  'EGCO',
-  'TASCO',
-  'SJWD',
-  'STA',
-  'VGI',
-  'ERW',
-  'BTG',
-  'SIRI',
-  'PR9',
-  'QH',
-  'BA',
-  'TCAP',
-  'KKP',
-  'TLI',
-  'ICHI',
-  'SAPPE',
-  'MAJOR',
-  'SINGER',
-  'MOSHI',
+export const SSET_STOCKS = [
+  'SIRI', 'PR9', 'QH', 'BA', 'ICHI', 'SAPPE', 'MAJOR', 'SINGER', 'MOSHI', 'FORTH',
+  'DOHOME', 'BLA', 'THG', 'BAM', 'PSL', 'RCL', 'TTA', 'AURA', 'NSL', 'MASTER',
+  'KLINIQ', 'SAFE', 'COCOCO', 'SAV', 'PLUS', 'SC', 'ORI', 'SNNP', 'KAMART', 'WARRIX',
+  'SISB', 'SHR', 'DEXON', 'MEB', 'PRTR', 'ONEE', 'SABUY', 'BE8', 'BBIK', 'ITEL'
 ];
+
+/**
+ * mai (Market for Alternative Investment Stocks)
+ */
+export const MAI_STOCKS = [
+  'SPA', 'AU', 'FSMART', 'D', 'XO', 'TACC', 'NETBAY', 'BOL', 'CHOW', 'ATP30',
+  'TITLE', 'WARRIX', 'PLANET', 'PIMO', 'SEAOIL', 'TM', 'TNP', 'TVD', 'UKEM', 'WINNER',
+  'SMART', 'COLOR', 'KCM', 'PROS', 'SECURE', 'DOD', 'MORE', 'MVP', 'KUN', 'CHEWA'
+];
+
+/**
+ * Comprehensive All Market (SET + mai Stocks)
+ */
+export const ALL_MARKET_STOCKS = Array.from(
+  new Set([...SET100_STOCKS, ...SSET_STOCKS, ...MAI_STOCKS])
+);
 
 export interface StockExchangeRules {
   symbol: string;
@@ -327,6 +256,27 @@ export function getSetStockTickSize(price: number): number {
   if (price < 200.0) return 0.50;
   if (price < 400.0) return 1.00;
   return 2.00;
+}
+
+/**
+ * Calculates shares conforming to SET Board Lot rules (100 shares per lot)
+ */
+export function calculateBoardLotShares(budgetThb: number, price: number): {
+  shares: number;
+  actualCostThb: number;
+  isValidLot: boolean;
+} {
+  if (price <= 0 || budgetThb <= 0) {
+    return { shares: 0, actualCostThb: 0, isValidLot: false };
+  }
+  const rawShares = budgetThb / price;
+  const boardLotShares = Math.floor(rawShares / 100) * 100;
+  const actualCost = boardLotShares * price;
+  return {
+    shares: boardLotShares,
+    actualCostThb: actualCost,
+    isValidLot: boardLotShares >= 100,
+  };
 }
 
 export async function fetchSymbolExchangeInfo(symbol: string): Promise<StockExchangeRules | null> {

@@ -30,7 +30,9 @@ export const SettradeSettingsModal: React.FC<SettradeSettingsModalProps> = ({
   const [apiKey, setApiKey] = useState(keys.apiKey || '');
   const [apiSecret, setApiSecret] = useState(keys.apiSecret || '');
   const [appCode, setAppCode] = useState(keys.appCode || '');
-  const [brokerId, setBrokerId] = useState(keys.brokerId || 'SANDBOX');
+  const [brokerId, setBrokerId] = useState(keys.brokerId || '023');
+  const [accountNo, setAccountNo] = useState(keys.accountNo || '');
+  const [pin, setPin] = useState(keys.pin || '');
   const [tradingMode, setTradingMode] = useState<'PAPER' | 'SETTRADE_LIVE'>(
     botConfig.mode === 'SETTRADE_LIVE' ? 'SETTRADE_LIVE' : 'PAPER'
   );
@@ -69,20 +71,20 @@ export const SettradeSettingsModal: React.FC<SettradeSettingsModalProps> = ({
       const res = await fetch('/api/stock/balances', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ apiKey, apiSecret, appCode, brokerId }),
+        body: JSON.stringify({ apiKey, apiSecret, appCode, brokerId, accountNo, pin }),
       });
 
       const data = await res.json();
       if (res.ok && data.success) {
         setVerifyStatus({
           success: true,
-          message: `เชื่อมต่อบัญชี Settrade Open API สำเร็จ! บัญชีพร้อมเทรดหุ้นไทย 🟢`,
+          message: `เชื่อมต่อบัญชี InnovestX / Settrade Open API สำเร็จ! บัญชีพร้อมเทรดหุ้นไทยอัตโนมัติ 🟢`,
           canTrade: true,
         });
       } else {
         setVerifyStatus({
           success: false,
-          message: data.error || 'การเชื่อมต่อล้มเหลว กรุณาตรวจสอบ App Key และ App Secret',
+          message: data.error || 'การเชื่อมต่อล้มเหลว กรุณาตรวจสอบ App Key, App Secret และ Broker ID',
         });
       }
     } catch (err: any) {
@@ -141,7 +143,7 @@ export const SettradeSettingsModal: React.FC<SettradeSettingsModalProps> = ({
       isEnabled: tgEnabled,
     };
 
-    onSaveKeys({ apiKey, apiSecret, appCode, brokerId });
+    onSaveKeys({ apiKey, apiSecret, appCode, brokerId, accountNo, pin });
     onSaveConfig({
       ...botConfig,
       mode: tradingMode,
@@ -245,10 +247,10 @@ export const SettradeSettingsModal: React.FC<SettradeSettingsModalProps> = ({
 
               {/* App Key Input */}
               <div className="space-y-1">
-                <label className="text-slate-300 font-medium block">Settrade App Key</label>
+                <label className="text-slate-300 font-medium block">InnovestX / Settrade App Key (API Key)</label>
                 <input
                   type="text"
-                  placeholder="กรอก App Key จาก Settrade Open API..."
+                  placeholder="กรอก App Key จาก InnovestX Open API..."
                   value={apiKey}
                   onChange={(e) => setApiKey(e.target.value)}
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:border-emerald-500"
@@ -257,7 +259,7 @@ export const SettradeSettingsModal: React.FC<SettradeSettingsModalProps> = ({
 
               {/* App Secret Input */}
               <div className="space-y-1">
-                <label className="text-slate-300 font-medium block">Settrade App Secret</label>
+                <label className="text-slate-300 font-medium block">InnovestX / Settrade App Secret</label>
                 <input
                   type="password"
                   placeholder="กรอก App Secret..."
@@ -267,13 +269,38 @@ export const SettradeSettingsModal: React.FC<SettradeSettingsModalProps> = ({
                 />
               </div>
 
+              {/* Account No & PIN */}
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <label className="text-slate-300 font-medium block">เลขที่พอร์ต (Account No)</label>
+                  <input
+                    type="text"
+                    placeholder="เช่น 1234567-E หรือ INVX001"
+                    value={accountNo}
+                    onChange={(e) => setAccountNo(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:border-emerald-500 text-xs"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-slate-300 font-medium block">Trading PIN (6 หลัก)</label>
+                  <input
+                    type="password"
+                    maxLength={6}
+                    placeholder="PIN สำหรับส่งคำสั่ง"
+                    value={pin}
+                    onChange={(e) => setPin(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:border-emerald-500 text-xs"
+                  />
+                </div>
+              </div>
+
               {/* App Code / Broker ID Input */}
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
                   <label className="text-slate-300 font-medium block">App Code (Optional)</label>
                   <input
                     type="text"
-                    placeholder="เช่น SANDBOX_APP"
+                    placeholder="เช่น INVX_PROD หรือ SANDBOX"
                     value={appCode}
                     onChange={(e) => setAppCode(e.target.value)}
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:border-emerald-500 text-xs"
@@ -283,7 +310,7 @@ export const SettradeSettingsModal: React.FC<SettradeSettingsModalProps> = ({
                   <label className="text-slate-300 font-medium block">Broker ID</label>
                   <input
                     type="text"
-                    placeholder="SANDBOX / 098"
+                    placeholder="023 (InnovestX) / SANDBOX"
                     value={brokerId}
                     onChange={(e) => setBrokerId(e.target.value)}
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:border-emerald-500 text-xs"
@@ -299,7 +326,7 @@ export const SettradeSettingsModal: React.FC<SettradeSettingsModalProps> = ({
                 className="w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl font-semibold transition flex items-center justify-center space-x-2 disabled:opacity-50"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${isVerifying ? 'animate-spin' : ''}`} />
-                <span>ทดสอบการเชื่อมต่อ API (Settrade)</span>
+                <span>ทดสอบการเชื่อมต่อ Direct InnovestX Open API</span>
               </button>
 
               {/* Verification Result Message */}
