@@ -182,7 +182,19 @@ export default function App() {
       try {
         const serverData = await fetchBotServerState();
         if (serverData && isMounted) {
-          setBotConfig((prev) => ({ ...prev, ...serverData.botConfig }));
+          setBotConfig((prev) => {
+            const merged = { ...prev, ...serverData.botConfig };
+            // เซิร์ฟเวอร์ mask botToken ออก (ไม่ส่งกลับมา) — เก็บ token ที่ผู้ใช้กรอกไว้ในเครื่องไว้
+            const serverTg = serverData.botConfig.telegramConfig;
+            const prevTg = prev.telegramConfig;
+            if (serverTg) {
+              merged.telegramConfig = {
+                ...serverTg,
+                botToken: serverTg.botToken || prevTg?.botToken || '',
+              };
+            }
+            return merged;
+          });
           setPaperAccount(serverData.paperAccount);
           setTradeHistory(serverData.tradeHistory);
           setBotLogs(serverData.botLogs);

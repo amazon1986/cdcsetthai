@@ -1,4 +1,5 @@
 import { BotConfig, PaperAccount, ExecutedTrade, SettradeApiKeys } from '../types';
+import { apiFetch } from './apiFetch';
 
 export interface BotServerState {
   botConfig: BotConfig;
@@ -14,7 +15,7 @@ export interface BotServerState {
  */
 export async function fetchBotServerState(): Promise<BotServerState | null> {
   try {
-    const res = await fetch('/api/bot/state');
+    const res = await apiFetch('/api/bot/state');
     if (!res.ok) return null;
     return await res.json();
   } catch {
@@ -27,7 +28,7 @@ export async function fetchBotServerState(): Promise<BotServerState | null> {
  */
 export async function saveBotServerConfig(config: BotConfig): Promise<boolean> {
   try {
-    const res = await fetch('/api/bot/config', {
+    const res = await apiFetch('/api/bot/config', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(config),
@@ -43,7 +44,7 @@ export async function saveBotServerConfig(config: BotConfig): Promise<boolean> {
  */
 export async function toggleBotServer(isActive?: boolean): Promise<{ success: boolean; isActive: boolean }> {
   try {
-    const res = await fetch('/api/bot/toggle', {
+    const res = await apiFetch('/api/bot/toggle', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ isActive }),
@@ -65,7 +66,7 @@ export async function sendManualOrderToServer(params: {
   currentPrice: number;
 }): Promise<{ success: boolean; error?: string }> {
   try {
-    const res = await fetch('/api/bot/manual-order', {
+    const res = await apiFetch('/api/bot/manual-order', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(params),
@@ -86,7 +87,7 @@ export async function closePositionOnServer(params: {
   reason?: string;
 }): Promise<{ success: boolean; error?: string }> {
   try {
-    const res = await fetch('/api/bot/close-position', {
+    const res = await apiFetch('/api/bot/close-position', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(params),
@@ -103,7 +104,7 @@ export async function closePositionOnServer(params: {
  */
 export async function clearBotServerLogs(): Promise<boolean> {
   try {
-    const res = await fetch('/api/bot/clear-logs', { method: 'POST' });
+    const res = await apiFetch('/api/bot/clear-logs', { method: 'POST' });
     return res.ok;
   } catch {
     return false;
@@ -115,7 +116,7 @@ export async function clearBotServerLogs(): Promise<boolean> {
  */
 export async function resetBotServerPaperAccount(): Promise<boolean> {
   try {
-    const res = await fetch('/api/bot/reset-paper', { method: 'POST' });
+    const res = await apiFetch('/api/bot/reset-paper', { method: 'POST' });
     return res.ok;
   } catch {
     return false;
@@ -127,7 +128,7 @@ export async function resetBotServerPaperAccount(): Promise<boolean> {
  */
 export async function saveBrokerKeysToServer(keys: SettradeApiKeys): Promise<boolean> {
   try {
-    const res = await fetch('/api/stock/keys', {
+    const res = await apiFetch('/api/stock/keys', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(keys),
@@ -156,7 +157,7 @@ export async function sendTelegramTestAlert(params: {
 
   // 1. Try sending through backend endpoint first
   try {
-    const res = await fetch('/api/telegram/test', {
+    const res = await apiFetch('/api/telegram/test', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(params),
@@ -210,7 +211,7 @@ export async function sendTelegramTestAlert(params: {
  */
 export async function unlockSymbolOnServer(symbol: string): Promise<boolean> {
   try {
-    const res = await fetch('/api/bot/unlock-symbol', {
+    const res = await apiFetch('/api/bot/unlock-symbol', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ symbol }),

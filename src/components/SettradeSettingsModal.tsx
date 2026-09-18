@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { SettradeApiKeys, BotConfig, TelegramConfig } from '../types';
 import { X, Key, Shield, AlertTriangle, CheckCircle, RefreshCw, Send, Bell, Info } from 'lucide-react';
 import { sendTelegramTestAlert } from '../lib/botApi';
+import { apiFetch, getDashboardToken, setDashboardToken as persistDashboardToken } from '../lib/apiFetch';
 
 interface SettradeSettingsModalProps {
   isOpen: boolean;
@@ -24,7 +25,8 @@ export const SettradeSettingsModal: React.FC<SettradeSettingsModalProps> = ({
   onSaveConfig,
   onSaveTelegramConfig,
 }) => {
-  const [activeTab, setActiveTab] = useState<'broker' | 'telegram'>('broker');
+  const [activeTab, setActiveTab] = useState<'broker' | 'telegram' | 'security'>('broker');
+  const [dashboardToken, setDashboardTokenInput] = useState<string>(getDashboardToken());
 
   // Broker State
   const [apiKey, setApiKey] = useState(keys.apiKey || '');
@@ -68,7 +70,7 @@ export const SettradeSettingsModal: React.FC<SettradeSettingsModalProps> = ({
     setIsVerifying(true);
     setVerifyStatus(null);
     try {
-      const res = await fetch('/api/stock/balances', {
+      const res = await apiFetch('/api/stock/balances', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ apiKey, apiSecret, appCode, brokerId, accountNo, pin }),
@@ -76,10 +78,13 @@ export const SettradeSettingsModal: React.FC<SettradeSettingsModalProps> = ({
 
       const data = await res.json();
       if (res.ok && data.success) {
+        const simulated = data.simulated === true;
         setVerifyStatus({
           success: true,
-          message: `เชื่อมต่อบัญชี InnovestX / Settrade Open API สำเร็จ! บัญชีพร้อมเทรดหุ้นไทยอัตโนมัติ 🟢`,
           canTrade: true,
+          message: simulated
+            ? 'เชื่อมต่อ API สำเร็จ (โหมดจำลอง/Sandbox — ยังไม่ได้ส่งออเดอร์จริงเข้าตลาด)'
+            : 'เชื่อมต่อบัญชี InnovestX / Settrade Open API สำเร็จ! บัญชีพร้อมเทรดหุ้นไทยอัตโนมัติ 🟢',
         });
       } else {
         setVerifyStatus({
@@ -194,6 +199,18 @@ export const SettradeSettingsModal: React.FC<SettradeSettingsModalProps> = ({
           >
             <Send className="w-3.5 h-3.5" />
             <span>แจ้งเตือน Telegram 📲</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('security')}
+            className={`flex-1 py-2 rounded-lg flex items-center justify-center space-x-2 transition ${
+              activeTab === 'security'
+                ? 'bg-slate-800 text-amber-400 shadow font-bold'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Shield className="w-3.5 h-3.5" />
+            <span>ความปลอดภัย 🔒</span>
           </button>
         </div>
 
@@ -437,6 +454,36 @@ export const SettradeSettingsModal: React.FC<SettradeSettingsModalProps> = ({
                   <span>{tgTestStatus.message}</span>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* TAB 3: Security / Access Token */}
+          {activeTab === 'security' && (
+            <div className="space-y-4">
+              <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 flex items-start space-x-2 text-[10px] text-slate-400">
+                <Shield className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                <span>
+                  เมื่อเซิร์ฟเวอร์ตั้งค่า <strong className="text-amber-300">DASHBOARD_TOKEN</strong> (Environment Variable) แล้ว
+                  ระบบจะบังคับให้ทุกคำขอ API ต้องส่งรหัสนี้มาด้วย เพื่อกันบุคคลภายนอกเข้าถึงบอท
+                </span>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-slate-300 font-medium block">Dashboard Access Token</label>
+                <input
+                  type="password"
+                  placeholder="กรอกรหัสเดียวกับ DASHBOARD_TOKEN บนเซิร์ฟเวอร์"
+                  value={dashboardToken}
+                  onChange={(e) => {
+                    setDashboardTokenInput(e.target.value);
+                    persistDashboardToken(e.target.value);
+                  }}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:border-amber-500"
+                />
+                <p className="text-[10px] text-slate-500">
+                  รหัสจะถูกเก็บใน LocalStorage ของเบราว์เซอร์นี้เท่านั้น และถูกส่งไปกับทุกคำขอ /api/*
+                </p>
+              </div>
             </div>
           )}
 

@@ -27,7 +27,7 @@ app.use(
   cors({
     origin: true,
     methods: ['GET', 'POST'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-dashboard-token'],
     credentials: false,
   })
 );
@@ -50,6 +50,23 @@ const orderLimiter = rateLimit({
 
 app.use('/api/', generalLimiter);
 app.use(express.json({ limit: '200kb' }));
+
+// Optional dashboard authentication. When DASHBOARD_TOKEN is set in the
+// environment, every /api/* endpoint requires the same value sent as either
+// `Authorization: Bearer <token>` or `x-dashboard-token` header.
+app.use('/api/', (req, res, next) => {
+  const expected = process.env.DASHBOARD_TOKEN;
+  if (!expected) return next(); // auth disabled (local development)
+  if (req.path === '/health') return next(); // keep health check public
+
+  const authHeader = String(req.headers.authorization || '');
+  const bearer = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+  const custom = String(req.headers['x-dashboard-token'] || '');
+  const token = bearer || custom;
+
+  if (token === expected) return next();
+  return res.status(401).json({ error: 'Unauthorized: invalid or missing dashboard token' });
+});
 
 // ==================== STATE PERSISTENCE ON SERVER ====================
 
@@ -183,8 +200,8 @@ function addServerLog(msg: string) {
 async function sendTelegramAlert(messageText: string): Promise<boolean> {
   try {
     const config = serverState.botConfig?.telegramConfig;
-    const token = config?.botToken || process.env.TELEGRAM_BOT_TOKEN;
-    const chatId = config?.chatId || process.env.TELEGRAM_CHAT_ID;
+    const token = process.env.TELEGRAM_BOT_TOKEN || config?.botToken;
+    const chatId = process.env.TELEGRAM_CHAT_ID || config?.chatId;
     const isEnabled = config?.isEnabled !== undefined ? config.isEnabled : true;
 
     if (!token || !chatId || !isEnabled) return false;
@@ -229,6 +246,67 @@ function sanitizeErrorMessage(error: any): string {
   return msg.replace(/\b[A-Z]:\\[^\s]+/gi, '[path]').substring(0, 200);
 }
 
+/**
+ * Returns a copy of botConfig safe to send to clients:
+ * the Telegram bot token is masked out so it can never leak through the API.
+ */
+function sanitizeBotConfig(): BotConfig {
+  const cfg = serverState.botConfig;
+  if (!cfg.telegramConfig) return cfg;
+  return { ...cfg, telegramConfig: { ...cfg.telegramConfig, botToken: '' } };
+}
+
+// ==================== MARKET HOURS (SET) & DATA-PROVIDER RATE-LIMIT PROTECTION ====================
+
+const ICT_OFFSET_MS = 7 * 60 * 60 * 1000; // Bangkok (UTC+7)
+
+// วันหยุดตลาดหลักทรัพย์แห่งประเทศไทย (รูปแบบ YYYY-MM-DD) — เพิ่มเติมตามประกาศ SET
+const MARKET_HOLIDAYS: string[] = [];
+
+function getBangkokParts(now: Date): { day: number; hour: number; minute: number; dateKey: string } {
+  const t = new Date(now.getTime() + ICT_OFFSET_MS);
+  const y = t.getUTCFullYear();
+  const m = String(t.getUTCMonth() + 1).padStart(2, '0');
+  const d = String(t.getUTCDate()).padStart(2, '0');
+  return { day: t.getUTCDay(), hour: t.getUTCHours(), minute: t.getUTCMinutes(), dateKey: `${y}-${m}-${d}` };
+}
+
+function isThaiMarketOpen(now: Date = new Date()): boolean {
+  const { day, hour, minute, dateKey } = getBangkokParts(now);
+  if (day === 0 || day === 6) return false; // เสาร์-อาทิตย์
+  if (MARKET_HOLIDAYS.includes(dateKey)) return false;
+  const mins = hour * 60 + minute;
+  const morning = mins >= 10 * 60 && mins < 12 * 60 + 30; // 10:00–12:30
+  const afternoon = mins >= 14 * 60 + 30 && mins < 16 * 60 + 35; // 14:30–16:30 (+buffer รับราคาปิด)
+  return morning || afternoon;
+}
+
+// แคชข้อมูลแท่งเทียน + backoff เพื่อไม่ให้ Yahoo Finance จำกัดอัตรา/แบน IP
+const klineCache = new Map<string, { data: KlineData[]; ts: number }>();
+const KLINE_CACHE_TTL_MS: Record<string, number> = {
+  '1m': 15000,
+  '5m': 30000,
+  '15m': 60000,
+  '1h': 120000,
+  '4h': 300000,
+  '1d': 300000,
+  '1w': 600000,
+};
+let yahooBackoffUntil = 0;
+
+function klineCacheTTL(interval: string): number {
+  return KLINE_CACHE_TTL_MS[interval] || 300000;
+}
+
+async function fetchKlinesCached(symbol: string, interval: string, limit = 300): Promise<KlineData[]> {
+  const key = `${symbol.toUpperCase()}|${interval}`;
+  const cached = klineCache.get(key);
+  if (cached && Date.now() - cached.ts < klineCacheTTL(interval)) return cached.data;
+  const data = await fetchKlinesDirect(symbol, interval, limit);
+  if (data.length > 0) klineCache.set(key, { data, ts: Date.now() });
+  return data;
+}
+
 // ==================== SERVER-SIDE BOT SIZING & TRADING ENGINE ====================
 
 function calculateOrderSize(config: BotConfig, account: PaperAccount): number {
@@ -258,6 +336,7 @@ function calculateOrderSize(config: BotConfig, account: PaperAccount): number {
 
 async function fetchKlinesDirect(symbol: string, interval: string, limit = 300): Promise<KlineData[]> {
   try {
+    if (Date.now() < yahooBackoffUntil) return [];
     let cleanSymbol = symbol.toUpperCase().replace(/[^A-Z0-9]/g, '') || 'PTT';
     const yahooSymbol = cleanSymbol.endsWith('.BK') ? cleanSymbol : `${cleanSymbol}.BK`;
 
@@ -303,7 +382,10 @@ async function fetchKlinesDirect(symbol: string, interval: string, limit = 300):
           'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
       },
     });
-    if (!res.ok) return [];
+    if (!res.ok) {
+      yahooBackoffUntil = Date.now() + (res.status === 429 ? 60000 : 15000);
+      return [];
+    }
     const data = await res.json();
     const result = data.chart?.result?.[0];
     if (!result || !result.timestamp) return [];
@@ -333,6 +415,7 @@ async function fetchKlinesDirect(symbol: string, interval: string, limit = 300):
     }
     return klines;
   } catch (err) {
+    yahooBackoffUntil = Date.now() + 15000;
     return [];
   }
 }
@@ -346,6 +429,9 @@ async function runServerBotCycle() {
   const config = serverState.botConfig;
   if (!config.isActive) return;
 
+  // ห้ามส่งคำสั่งซื้อขายนอกเวลาทำการของตลาดหลักทรัพย์ (SET)
+  if (!isThaiMarketOpen()) return;
+
   isCycleRunning = true;
   try {
     const dirMode = config.directionMode ?? 'LONG_ONLY';
@@ -355,7 +441,7 @@ async function runServerBotCycle() {
     for (const sym of symbolsToEvaluate) {
       if (!serverState.botConfig.isActive) break;
 
-      const rawCandles = await fetchKlinesDirect(sym, config.timeframe, 300);
+      const rawCandles = await fetchKlinesCached(sym, config.timeframe, 300);
       if (rawCandles.length < 30) continue;
 
       const cdcCandles = calculateCDCActionZone(rawCandles, config.fastEmaPeriod, config.slowEmaPeriod);
@@ -607,8 +693,17 @@ async function runServerBotCycle() {
   }
 }
 
-// Start continuous 24/7 background execution loop every 10 seconds
-setInterval(runServerBotCycle, 10000);
+// Start continuous background execution loop (throttled per timeframe to
+// avoid hammering the data provider and getting rate-limited / banned).
+function scheduleBotCycle() {
+  const tf = serverState.botConfig.timeframe || '1d';
+  const intervalMs =
+    tf === '1m' || tf === '5m' ? 15000 : tf === '15m' || tf === '1h' ? 30000 : 60000;
+  setTimeout(() => {
+    runServerBotCycle().finally(scheduleBotCycle);
+  }, intervalMs);
+}
+scheduleBotCycle();
 
 // Self-ping heartbeat every 10 minutes to prevent server sleeping
 const RENDER_APP_URL = process.env.RENDER_EXTERNAL_URL;
@@ -628,7 +723,7 @@ if (RENDER_APP_URL) {
 // 1. Get central server state
 app.get('/api/bot/state', (req, res) => {
   return res.json({
-    botConfig: serverState.botConfig,
+    botConfig: sanitizeBotConfig(),
     paperAccount: serverState.paperAccount,
     tradeHistory: serverState.tradeHistory,
     botLogs: serverState.botLogs,
@@ -643,6 +738,10 @@ app.post('/api/bot/config', (req, res) => {
     const updated = req.body as Partial<BotConfig>;
     if (updated.leverage !== undefined) {
       updated.leverage = Math.min(Math.max(1, parseInt(String(updated.leverage), 10) || 1), 10);
+    }
+    // อย่าให้ client ส่ง botToken ว่างมาลบทิ้ง token ที่เซิร์ฟเวอร์ถืออยู่โดยไม่ตั้งใจ
+    if (updated.telegramConfig && !updated.telegramConfig.botToken) {
+      updated.telegramConfig.botToken = serverState.botConfig.telegramConfig?.botToken || '';
     }
     serverState.botConfig = {
       ...serverState.botConfig,
@@ -683,6 +782,13 @@ app.post('/api/bot/manual-order', (req, res) => {
     const { symbol, side, amountUsdt, currentPrice } = req.body;
     if (!symbol || !side || !amountUsdt || !currentPrice) {
       return res.status(400).json({ error: 'Missing parameters' });
+    }
+
+    // ห้ามส่งคำสั่ง Live นอกเวลาทำการของตลาดหลักทรัพย์ (SET)
+    if (serverState.botConfig.mode === 'SETTRADE_LIVE' && !isThaiMarketOpen()) {
+      return res.status(400).json({
+        error: 'นอกเวลาทำการซื้อขายของตลาดหลักทรัพย์ (SET): 10:00–12:30 / 14:30–16:30 จันทร์–ศุกร์',
+      });
     }
 
     if (serverState.paperAccount.usdtBalance < amountUsdt) {
@@ -929,6 +1035,7 @@ app.get('/api/health', (req, res) => {
     system: 'CDC Action Zone V2 SET Thai Stock Bot',
     uptime: process.uptime(),
     isBotActive: serverState.botConfig.isActive,
+    marketOpen: isThaiMarketOpen(),
     time: new Date().toISOString(),
   });
 });
@@ -1051,20 +1158,8 @@ const handleTicker = async (req: express.Request, res: express.Response) => {
       });
     }
 
-    // Fallback/fill missing stocks
-    popularStocks.forEach((s) => {
-      const key = `THB_${s}`;
-      if (!tickerResult[key]) {
-        tickerResult[key] = {
-          last: 40.0,
-          percentChange: 0.0,
-          lowestAsk: 40.0,
-          highestBid: 40.0,
-          baseVolume: 500000,
-          quoteVolume: 20000000,
-        };
-      }
-    });
+    // ไม่เติมราคาปลอม (40.0) ให้หุ้นที่ Yahoo ไม่มีข้อมูล — หุ้นที่หายไปจะถูกข้าม
+    // เพื่อป้องกันไม่ให้บอทเทรดบนราคาที่ไม่ใช่ราคาจริงของตลาด
 
     return res.json(tickerResult);
   } catch (error: any) {
@@ -1134,10 +1229,12 @@ app.get('/api/stock/depth', handleDepth);
 
 const handleBalances = async (req: express.Request, res: express.Response) => {
   try {
+    // NOTE: stub — ยังไม่เชื่อมต่อ broker Open API จริง (P1)
     const { apiKey, apiSecret, brokerId, accountNo } = req.body || {};
     return res.json({
       success: true,
       canTrade: true,
+      simulated: true,
       accountType: brokerId === '023' ? 'INNOVESTX_OPEN_API' : 'SETTRADE_OPEN_API',
       accountNo: accountNo || 'INVX-MAIN',
       balances: [{ asset: 'THB', free: '1000000.00', locked: '0.00' }],
@@ -1151,9 +1248,11 @@ app.post('/api/stock/balances', handleBalances);
 
 const handleOrder = async (req: express.Request, res: express.Response) => {
   try {
+    // NOTE: stub — ยังไม่ส่งคำสั่งไปยัง broker จริง (P1) คืน simulated success เท่านั้น
     const { apiKey, symbol, side, quantity, price, orderType = 'MARKET', pin } = req.body;
     return res.json({
       success: true,
+      simulated: true,
       order: {
         orderId: `invx_${Date.now()}`,
         symbol: symbol,

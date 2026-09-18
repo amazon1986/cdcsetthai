@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { KlineData, Timeframe, AiAnalysisResponse } from '../types';
 import { Cpu, RefreshCw, AlertCircle, CheckCircle, ShieldCheck, TrendingUp } from 'lucide-react';
+import { apiFetch } from '../lib/apiFetch';
 
 interface AiAnalystPanelProps {
   symbol: string;
@@ -25,7 +26,7 @@ export const AiAnalystPanel: React.FC<AiAnalystPanelProps> = ({
     setErrorMsg(null);
 
     try {
-      const response = await fetch('/api/ai-analyze', {
+      const response = await apiFetch('/api/ai-analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

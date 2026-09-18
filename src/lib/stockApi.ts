@@ -1,4 +1,5 @@
 import { KlineData, StockTicker24h, OrderBookData, Timeframe, SettradeApiKeys } from '../types';
+import { apiFetch } from './apiFetch';
 
 /**
  * Normalizes Thai stock symbol for Yahoo Finance or SET API format (e.g. PTT -> PTT.BK)
@@ -67,7 +68,7 @@ export async function fetchStockKlines(
   const from = to - limit * timeStepSeconds;
 
   try {
-    const response = await fetch(
+    const response = await apiFetch(
       `/api/stock/klines?symbol=${friendlySymbol}&resolution=${resolution}&from=${from}&to=${to}`
     );
     if (!response.ok) {
@@ -100,7 +101,7 @@ export async function fetchStockKlines(
 export async function fetchStockTicker24h(symbol?: string): Promise<StockTicker24h[]> {
   try {
     const searchSymbol = symbol ? toStockSymbol(symbol) : '';
-    const response = await fetch(`/api/stock/ticker`);
+    const response = await apiFetch(`/api/stock/ticker`);
 
     if (!response.ok) throw new Error('Ticker fetch failed');
 
@@ -141,7 +142,7 @@ export async function fetchStockTicker24h(symbol?: string): Promise<StockTicker2
  */
 export async function fetchOrderBook(symbol = 'PTT', limit = 15): Promise<OrderBookData> {
   try {
-    const res = await fetch(`/api/stock/depth?symbol=${symbol}&limit=${limit}`);
+    const res = await apiFetch(`/api/stock/depth?symbol=${symbol}&limit=${limit}`);
 
     if (!res.ok) throw new Error('Orderbook fetch failed');
 
@@ -308,7 +309,7 @@ export async function executeLiveStockOrder(params: {
   orderType?: 'MARKET' | 'LIMIT';
 }): Promise<{ success: boolean; order?: any; error?: string }> {
   try {
-    const res = await fetch('/api/stock/order', {
+    const res = await apiFetch('/api/stock/order', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(params),
@@ -333,7 +334,7 @@ export async function fetchLiveStockBalances(keys: {
 }): Promise<number | null> {
   if (!keys.apiKey || !keys.apiSecret) return null;
   try {
-    const res = await fetch('/api/stock/balances', {
+    const res = await apiFetch('/api/stock/balances', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(keys),

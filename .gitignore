@@ -6,3 +6,6 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Runtime state containing sensitive credentials (Telegram token, API keys)
+data/
