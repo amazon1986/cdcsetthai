@@ -69,49 +69,6 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
 
-        {/* Live Running Ticker Tape (ข้อความวิ่งราคาหุ้นไทยทั้งหมดในระบบ) */}
-        <div className="flex-1 max-w-xl mx-2 sm:mx-4 overflow-hidden rounded-xl bg-slate-950/80 border border-slate-800/80 py-1.5 px-3 relative group">
-          {/* Gradient Edge Masks for Smooth Visual Fade */}
-          <div className="absolute left-0 top-0 bottom-0 w-6 bg-gradient-to-r from-slate-950 to-transparent z-10 pointer-events-none" />
-          <div className="absolute right-0 top-0 bottom-0 w-6 bg-gradient-to-l from-slate-950 to-transparent z-10 pointer-events-none" />
-
-          {tickers.length > 0 ? (
-            <div className="animate-marquee flex items-center space-x-6 text-xs whitespace-nowrap">
-              {displayTickerItems.map((t, idx) => {
-                const isPositive = t.priceChangePercent >= 0;
-                const formattedPrice = formatStockPrice(t.lastPrice);
-
-                return (
-                  <div
-                    key={`${t.symbol}-${idx}`}
-                    onClick={() => onSelectSymbol && onSelectSymbol(t.symbol)}
-                    className="flex items-center space-x-1.5 cursor-pointer hover:bg-slate-800/90 px-2 py-0.5 rounded transition group/item"
-                    title={`คลิกเพื่อดูชาร์ต ${t.symbol}`}
-                  >
-                    <span className="text-slate-400 font-semibold group-hover/item:text-emerald-400 transition">
-                      {t.symbol}:
-                    </span>
-                    <span className="font-mono font-bold text-white">{formattedPrice}</span>
-                    <span
-                      className={`font-mono text-[11px] font-bold ${
-                        isPositive ? 'text-emerald-400' : 'text-rose-400'
-                      }`}
-                    >
-                      {isPositive ? `+${t.priceChangePercent.toFixed(2)}%` : `${t.priceChangePercent.toFixed(2)}%`}
-                    </span>
-                    <span className="text-slate-700 font-bold ml-3">|</span>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="flex items-center justify-center space-x-4 text-xs text-slate-400 py-0.5">
-              <span className="animate-pulse">กำลังดึงราคาหุ้นไทยทั้งหมดในระบบ...</span>
-              {pttPrice && <span className="font-mono text-emerald-400">PTT: ฿{pttPrice.toLocaleString()}</span>}
-              {cpallPrice && <span className="font-mono text-cyan-400">CPALL: ฿{cpallPrice.toLocaleString()}</span>}
-            </div>
-          )}
-        </div>
 
         {/* Right Action Controls: Mode, Balance, Bot Switch, Settings */}
         <div className="flex items-center space-x-3">
@@ -272,6 +229,49 @@ export const Header: React.FC<HeaderProps> = ({
             <span>เลี้ยงกาแฟ ☕</span>
           </button>
         </div>
+      </div>
+
+      {/* Live Running Ticker Tape — แถบราคาวิ่ง ล่างสุดของ Header */}
+      <div className="bg-slate-950 border-t border-slate-800/60 relative overflow-hidden">
+        {/* Gradient Edge Masks */}
+        <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-slate-950 to-transparent z-10 pointer-events-none" />
+        <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-slate-950 to-transparent z-10 pointer-events-none" />
+
+        {tickers.length > 0 ? (
+          <div className="animate-marquee flex items-center space-x-6 text-xs whitespace-nowrap py-1.5 px-4">
+            {displayTickerItems.map((t, idx) => {
+              const isPositive = t.priceChangePercent >= 0;
+              const formattedPrice = formatStockPrice(t.lastPrice);
+              return (
+                <div
+                  key={`ticker-bottom-${t.symbol}-${idx}`}
+                  onClick={() => onSelectSymbol && onSelectSymbol(t.symbol)}
+                  className="flex items-center space-x-1.5 cursor-pointer hover:bg-slate-800/70 px-2 py-0.5 rounded transition group/item"
+                  title={`คลิกเพื่อดูชาร์ต ${t.symbol}`}
+                >
+                  <span className="text-slate-400 font-semibold group-hover/item:text-emerald-400 transition">
+                    {t.symbol}:
+                  </span>
+                  <span className="font-mono font-bold text-white">{formattedPrice}</span>
+                  <span
+                    className={`font-mono text-[11px] font-bold ${
+                      isPositive ? 'text-emerald-400' : 'text-rose-400'
+                    }`}
+                  >
+                    {isPositive ? `+${t.priceChangePercent.toFixed(2)}%` : `${t.priceChangePercent.toFixed(2)}%`}
+                  </span>
+                  <span className="text-slate-700 font-bold ml-3">|</span>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="flex items-center space-x-4 text-xs text-slate-500 py-1.5 px-6 animate-pulse">
+            <span>กำลังดึงราคาหุ้นไทยทั้งหมดในระบบ...</span>
+            {pttPrice && <span className="font-mono text-emerald-400/70">PTT: ฿{pttPrice.toLocaleString()}</span>}
+            {cpallPrice && <span className="font-mono text-cyan-400/70">CPALL: ฿{cpallPrice.toLocaleString()}</span>}
+          </div>
+        )}
       </div>
     </header>
   );
