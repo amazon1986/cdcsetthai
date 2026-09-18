@@ -25,6 +25,7 @@ import {
   addBotLog,
   getStoredSymbols,
   getStoredWatchlist,
+  saveStoredWatchlist,
   DEFAULT_PAPER_ACCOUNT,
 } from './lib/botStore';
 import {
@@ -96,6 +97,13 @@ export default function App() {
   const [telegramConfig, setTelegramConfig] = useState<{ botToken: string; chatId: string; isEnabled: boolean }>(getStoredTelegramConfig);
   const [tradeHistory, setTradeHistory] = useState<ExecutedTrade[]>(getStoredTradeHistory);
   const [botLogs, setBotLogs] = useState<string[]>(getStoredLogs);
+
+  // Unified Watchlist state (single source of truth shared between MarketScanner, BotControlPanel, and Cloud Server)
+  const [watchlist, setWatchlist] = useState<string[]>(() => {
+    const fromConfig = getStoredBotConfig().customWatchlist;
+    if (fromConfig && fromConfig.length > 0) return fromConfig;
+    return getStoredWatchlist();
+  });
 
   // Market & Kline State
   const [candles, setCandles] = useState<KlineData[]>([]);
@@ -290,6 +298,19 @@ export default function App() {
     showToast(`อัปเดต Settrade API Key เรียบร้อย`, 'info');
   };
 
+  // Update unified watchlist (from MarketScanner / BotControlPanel) and sync to bot config + cloud server
+  const handleUpdateWatchlist = async (updated: string[]) => {
+    const cleaned = Array.from(
+      new Set(updated.map((s) => s.toUpperCase().trim().replace(/[^A-Z0-9]/g, '')).filter(Boolean))
+    );
+    setWatchlist(cleaned);
+    saveStoredWatchlist(cleaned);
+    const next: BotConfig = { ...botConfig, customWatchlist: cleaned };
+    setBotConfig(next);
+    saveBotConfig(next);
+    await saveBotServerConfig(next);
+  };
+
   const handleResetPaperAccount = async () => {
     if (confirm('คุณต้องการรีเซ็ตยอดเงินบัญชีทดลอง (Paper Trading) เป็น ฿100,000 THB หรือไม่?')) {
       await resetBotServerPaperAccount();
@@ -456,6 +477,8 @@ export default function App() {
               botConfig={botConfig}
               paperAccount={paperAccount}
               currentPrice={currentPrice}
+              watchlist={watchlist}
+              onUpdateWatchlist={handleUpdateWatchlist}
               onSaveConfig={handleSaveBotConfig}
               onToggleBot={() => handleSaveBotConfig({ ...botConfig, isActive: !botConfig.isActive })}
               onManualBuy={handleManualBuy}
@@ -515,6 +538,8 @@ export default function App() {
 
         {activeTab === 'scanner' && (
           <MarketScanner
+            watchlist={watchlist}
+            onUpdateWatchlist={handleUpdateWatchlist}
             onSelectStock={(selectedSymbol) => {
               handleSaveBotConfig({ ...botConfig, symbol: selectedSymbol });
               setActiveTab('chart');

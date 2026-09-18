@@ -24,7 +24,7 @@ import {
   getStoredSymbols,
   saveStoredSymbols,
   getStoredWatchlist,
-  toggleWatchlistSymbol,
+  saveStoredWatchlist,
 } from '../lib/botStore';
 import {
   Search,
@@ -59,6 +59,8 @@ import {
 interface MarketScannerProps {
   onSelectCoin?: (symbol: string) => void;
   onSelectStock?: (symbol: string) => void;
+  watchlist?: string[];
+  onUpdateWatchlist?: (updated: string[]) => void;
 }
 
 export type MarketScanMode =
@@ -84,13 +86,28 @@ type SignalFilterType =
 
 type SortOption = 'SCORE_DESC' | 'CHANGE_DESC' | 'CHANGE_ASC' | 'VOLUME_DESC' | 'RECENCY_ASC' | 'SYMBOL_ASC';
 
-export const MarketScanner: React.FC<MarketScannerProps> = ({ onSelectCoin, onSelectStock }) => {
+export const MarketScanner: React.FC<MarketScannerProps> = ({
+  onSelectCoin,
+  onSelectStock,
+  watchlist: propWatchlist,
+  onUpdateWatchlist,
+}) => {
   const handleSelect = onSelectStock || onSelectCoin || (() => {});
 
   // Market & Watchlist State
   const [scanMode, setScanMode] = useState<MarketScanMode>('ALL_MARKET');
   const [customList, setCustomList] = useState<string[]>(() => getStoredSymbols());
-  const [watchlist, setWatchlist] = useState<string[]>(() => getStoredWatchlist());
+  const [watchlist, setWatchlist] = useState<string[]>(() => propWatchlist || getStoredWatchlist());
+
+  // Sync with propWatchlist if provided by parent (App.tsx)
+  useEffect(() => {
+    if (propWatchlist) {
+      setWatchlist(propWatchlist);
+      setScanResults((prev) =>
+        prev.map((r) => ({ ...r, isWatchlist: propWatchlist.includes(r.symbol) }))
+      );
+    }
+  }, [propWatchlist]);
 
   // Input & Modal States
   const [newSymbolInput, setNewSymbolInput] = useState('');
@@ -232,13 +249,21 @@ export const MarketScanner: React.FC<MarketScannerProps> = ({ onSelectCoin, onSe
     runScanner(activeSymbolList);
   }, [scanMode, timeframe]);
 
-  // Watchlist Toggle
+  // Watchlist Toggle (single source of truth shared with the bot via onUpdateWatchlist)
   const handleToggleWatchlist = (e: React.MouseEvent, symbol: string) => {
     e.stopPropagation();
-    const updated = toggleWatchlistSymbol(symbol);
+    const upper = symbol.toUpperCase().trim();
+    const updated = watchlist.includes(upper)
+      ? watchlist.filter((s) => s !== upper)
+      : [...watchlist, upper];
     setWatchlist(updated);
+    if (onUpdateWatchlist) {
+      onUpdateWatchlist(updated);
+    } else {
+      saveStoredWatchlist(updated);
+    }
     setScanResults((prev) =>
-      prev.map((r) => (r.symbol === symbol ? { ...r, isWatchlist: updated.includes(symbol) } : r))
+      prev.map((r) => (r.symbol === upper ? { ...r, isWatchlist: updated.includes(upper) } : r))
     );
   };
 

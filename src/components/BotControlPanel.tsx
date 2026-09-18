@@ -36,6 +36,8 @@ interface BotControlPanelProps {
   botConfig: BotConfig;
   paperAccount: PaperAccount;
   currentPrice: number;
+  watchlist?: string[];
+  onUpdateWatchlist?: (updated: string[]) => void;
   onSaveConfig: (updated: BotConfig) => void;
   onToggleBot: () => void;
   onManualBuy: (customAmountUsdt?: number) => void;
@@ -50,6 +52,8 @@ export const BotControlPanel: React.FC<BotControlPanelProps> = ({
   botConfig,
   paperAccount,
   currentPrice,
+  watchlist: propWatchlist,
+  onUpdateWatchlist,
   onSaveConfig,
   onToggleBot,
   onManualBuy,
@@ -81,19 +85,9 @@ export const BotControlPanel: React.FC<BotControlPanelProps> = ({
   // Active Stop Loss Locked symbols
   const lockedSymbolsList: StopLossLockInfo[] = Object.values(botConfig.stopLossLocks || {}) as StopLossLockInfo[];
 
-  const [watchlist, setWatchlist] = useState<string[]>(() => {
-    if (botConfig.customWatchlist && botConfig.customWatchlist.length > 0) {
-      return botConfig.customWatchlist;
-    }
-    return getStoredWatchlist();
-  });
+  // 🎯 Use shared Watchlist from props (single source of truth with MarketScanner & Cloud Bot)
+  const watchlist = propWatchlist || (botConfig.customWatchlist && botConfig.customWatchlist.length > 0 ? botConfig.customWatchlist : getStoredWatchlist());
   const [newSymbolInput, setNewSymbolInput] = useState('');
-
-  useEffect(() => {
-    if (botConfig.customWatchlist && botConfig.customWatchlist.length > 0) {
-      setWatchlist(botConfig.customWatchlist);
-    }
-  }, [botConfig.customWatchlist]);
 
   const usedSlots = paperAccount.activePositions.length;
   const freeSlots = Math.max(0, maxSlots - usedSlots);
@@ -117,27 +111,33 @@ export const BotControlPanel: React.FC<BotControlPanelProps> = ({
       return;
     }
     const updated = [...watchlist, clean];
-    setWatchlist(updated);
     saveStoredWatchlist(updated);
     setNewSymbolInput('');
-    const updatedConfig: BotConfig = {
-      ...botConfig,
-      customWatchlist: updated,
-    };
-    setConfigForm((prev) => ({ ...prev, customWatchlist: updated }));
-    onSaveConfig(updatedConfig);
+    if (onUpdateWatchlist) {
+      onUpdateWatchlist(updated);
+    } else {
+      const updatedConfig: BotConfig = {
+        ...botConfig,
+        customWatchlist: updated,
+      };
+      setConfigForm((prev) => ({ ...prev, customWatchlist: updated }));
+      onSaveConfig(updatedConfig);
+    }
   };
 
   const handleRemoveFromWatchlist = (symbol: string) => {
     const updated = watchlist.filter((s) => s !== symbol);
-    setWatchlist(updated);
     saveStoredWatchlist(updated);
-    const updatedConfig: BotConfig = {
-      ...botConfig,
-      customWatchlist: updated,
-    };
-    setConfigForm((prev) => ({ ...prev, customWatchlist: updated }));
-    onSaveConfig(updatedConfig);
+    if (onUpdateWatchlist) {
+      onUpdateWatchlist(updated);
+    } else {
+      const updatedConfig: BotConfig = {
+        ...botConfig,
+        customWatchlist: updated,
+      };
+      setConfigForm((prev) => ({ ...prev, customWatchlist: updated }));
+      onSaveConfig(updatedConfig);
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -281,10 +281,10 @@ export const BotControlPanel: React.FC<BotControlPanelProps> = ({
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="text-xs font-bold text-amber-400 flex items-center space-x-1.5">
                   <Star className="w-3.5 h-3.5 fill-amber-400" />
-                  <span>หุ้นใน Watchlist สำหรับบอท ({watchlist.length} หุ้น):</span>
+                  <span>หุ้นใน Watchlist (เดียวกันกับหน้าสแกนหุ้น CDC) ({watchlist.length} หุ้น):</span>
                 </span>
                 <span className="text-[11px] text-slate-400">
-                  (คลิก ✕ เพื่อถอดออก หรือพิมพ์ชื่อหุ้นเพื่อเพิ่ม)
+                  (เชื่อมต่อตรงกับดาว ⭐ ในหน้าสแกนหุ้น CDC — คลิก ✕ หรือพิมพ์เพิ่มได้ทันที)
                 </span>
               </div>
 
