@@ -71,7 +71,8 @@ export interface BotConfig {
   sellOnSignal: ('YELLOW' | 'RED')[];
   mode: 'PAPER' | 'SETTRADE_LIVE';
   marketType?: 'SPOT' | 'FUTURES';
-  scanMode?: 'SINGLE' | 'MULTI_SCAN';
+  scanMode?: 'SINGLE' | 'WATCHLIST' | 'MULTI_SCAN';
+  customWatchlist?: string[];
   directionMode?: 'LONG_ONLY' | 'SHORT_ONLY' | 'BOTH';
   telegramConfig?: {
     botToken: string;

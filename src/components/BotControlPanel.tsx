@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BotConfig, PaperAccount, PaperPosition, ExecutedTrade, Timeframe, StopLossLockInfo } from '../types';
 import { formatStockPrice, formatStockAmount } from '../lib/stockApi';
+import { getStoredWatchlist, saveStoredWatchlist } from '../lib/botStore';
 import {
   Play,
   Pause,
@@ -24,6 +25,11 @@ import {
   Sparkles,
   RefreshCw,
   Info,
+  Target,
+  Star,
+  Globe,
+  Plus,
+  X,
 } from 'lucide-react';
 
 interface BotControlPanelProps {
@@ -75,10 +81,71 @@ export const BotControlPanel: React.FC<BotControlPanelProps> = ({
   // Active Stop Loss Locked symbols
   const lockedSymbolsList: StopLossLockInfo[] = Object.values(botConfig.stopLossLocks || {}) as StopLossLockInfo[];
 
+  const [watchlist, setWatchlist] = useState<string[]>(() => {
+    if (botConfig.customWatchlist && botConfig.customWatchlist.length > 0) {
+      return botConfig.customWatchlist;
+    }
+    return getStoredWatchlist();
+  });
+  const [newSymbolInput, setNewSymbolInput] = useState('');
+
+  useEffect(() => {
+    if (botConfig.customWatchlist && botConfig.customWatchlist.length > 0) {
+      setWatchlist(botConfig.customWatchlist);
+    }
+  }, [botConfig.customWatchlist]);
+
+  const usedSlots = paperAccount.activePositions.length;
+  const freeSlots = Math.max(0, maxSlots - usedSlots);
+  const currentScope = botConfig.scanMode || 'WATCHLIST';
+
+  const handleSelectScope = (mode: 'SINGLE' | 'WATCHLIST' | 'MULTI_SCAN') => {
+    const updated: BotConfig = {
+      ...botConfig,
+      scanMode: mode,
+      customWatchlist: watchlist,
+    };
+    setConfigForm((prev) => ({ ...prev, scanMode: mode, customWatchlist: watchlist }));
+    onSaveConfig(updated);
+  };
+
+  const handleAddSymbolToWatchlist = () => {
+    const clean = newSymbolInput.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (!clean) return;
+    if (watchlist.includes(clean)) {
+      setNewSymbolInput('');
+      return;
+    }
+    const updated = [...watchlist, clean];
+    setWatchlist(updated);
+    saveStoredWatchlist(updated);
+    setNewSymbolInput('');
+    const updatedConfig: BotConfig = {
+      ...botConfig,
+      customWatchlist: updated,
+    };
+    setConfigForm((prev) => ({ ...prev, customWatchlist: updated }));
+    onSaveConfig(updatedConfig);
+  };
+
+  const handleRemoveFromWatchlist = (symbol: string) => {
+    const updated = watchlist.filter((s) => s !== symbol);
+    setWatchlist(updated);
+    saveStoredWatchlist(updated);
+    const updatedConfig: BotConfig = {
+      ...botConfig,
+      customWatchlist: updated,
+    };
+    setConfigForm((prev) => ({ ...prev, customWatchlist: updated }));
+    onSaveConfig(updatedConfig);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const sanitizedConfig: BotConfig = {
       ...configForm,
+      scanMode: configForm.scanMode || 'WATCHLIST',
+      customWatchlist: watchlist,
       fastEmaPeriod: Number(configForm.fastEmaPeriod) || 12,
       slowEmaPeriod: Number(configForm.slowEmaPeriod) || 26,
       balancePercent: Number(configForm.balancePercent) || 20,
@@ -110,6 +177,168 @@ export const BotControlPanel: React.FC<BotControlPanelProps> = ({
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       {/* Column 1 & 2: Bot Strategy Configuration & Active Position */}
       <div className="lg:col-span-2 space-y-6">
+        {/* ================= 0. TRADING SCOPE MODE (โหมดการสแกนของบอท) ================= */}
+        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-xl space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
+            <div className="flex items-center space-x-2.5">
+              <Target className="w-5 h-5 text-amber-400" />
+              <h3 className="text-base font-black text-white">
+                โหมดการสแกนของบอท (Trading Scope Mode)
+              </h3>
+            </div>
+            <div className="flex items-center space-x-2 px-3 py-1 rounded-full bg-blue-950/60 border border-blue-500/40 text-blue-300 font-bold text-xs">
+              <Target className="w-3.5 h-3.5 text-rose-400" />
+              <span>
+                โควต้าไม้: {usedSlots} / {maxSlots} ไม้ (ว่าง {freeSlots} ไม้)
+              </span>
+            </div>
+          </div>
+
+          {/* 3 Scope Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {/* 1. เล่นเฉพาะหุ้นปัจจุบัน */}
+            <button
+              type="button"
+              onClick={() => handleSelectScope('SINGLE')}
+              className={`p-4 rounded-2xl border text-left transition relative cursor-pointer ${
+                currentScope === 'SINGLE'
+                  ? 'border-amber-500/80 bg-amber-500/5 ring-1 ring-amber-500/30'
+                  : 'border-slate-800 bg-slate-950/70 hover:border-slate-700 hover:bg-slate-800/40'
+              }`}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm md:text-base font-bold text-white flex items-center space-x-1.5">
+                  <span>🎯</span>
+                  <span>เล่นเฉพาะหุ้นปัจจุบัน</span>
+                </span>
+                {currentScope === 'SINGLE' && (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-500/20 text-amber-400 border border-amber-500/40">
+                    ใช้งานอยู่
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                เฝ้าระวังและส่งคำสั่งซื้อเฉพาะหุ้น <span className="font-mono font-bold text-slate-200">{botConfig.symbol}</span> ที่เลือกอยู่นี้เท่านั้น
+              </p>
+            </button>
+
+            {/* 2. เล่นเฉพาะใน Watchlist (DEFAULT) */}
+            <button
+              type="button"
+              onClick={() => handleSelectScope('WATCHLIST')}
+              className={`p-4 rounded-2xl border text-left transition relative cursor-pointer ${
+                currentScope === 'WATCHLIST'
+                  ? 'border-amber-500/80 bg-amber-500/5 ring-1 ring-amber-500/30 shadow-lg shadow-amber-500/5'
+                  : 'border-slate-800 bg-slate-950/70 hover:border-slate-700 hover:bg-slate-800/40'
+              }`}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm md:text-base font-bold text-white flex items-center space-x-1.5">
+                  <span className="text-amber-400">⭐</span>
+                  <span>เล่นเฉพาะใน Watchlist</span>
+                </span>
+                {currentScope === 'WATCHLIST' && (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-500/20 text-amber-400 border border-amber-500/40">
+                    ใช้งานอยู่
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                สแกนและคัดเลือกเฉพาะหุ้นใน Watchlist ที่ตั้งไว้ ตามโควต้าไม้
+              </p>
+            </button>
+
+            {/* 3. สแกนทั้งตลาด */}
+            <button
+              type="button"
+              onClick={() => handleSelectScope('MULTI_SCAN')}
+              className={`p-4 rounded-2xl border text-left transition relative cursor-pointer ${
+                currentScope === 'MULTI_SCAN'
+                  ? 'border-amber-500/80 bg-amber-500/5 ring-1 ring-amber-500/30'
+                  : 'border-slate-800 bg-slate-950/70 hover:border-slate-700 hover:bg-slate-800/40'
+              }`}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm md:text-base font-bold text-white flex items-center space-x-1.5">
+                  <span>🌐</span>
+                  <span>สแกนทั้งตลาด (Top Picks)</span>
+                </span>
+                {currentScope === 'MULTI_SCAN' && (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-500/20 text-amber-400 border border-amber-500/40">
+                    ใช้งานอยู่
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                สแกนทุกหุ้นในตลาด SET และคัดเลือกหุ้นคะแนนสูงสุดเข้าซื้อตามจำนวนไม้
+              </p>
+            </button>
+          </div>
+
+          {/* Watchlist Manager Bar (When Watchlist Mode is Active) */}
+          {currentScope === 'WATCHLIST' && (
+            <div className="bg-slate-950/80 border border-slate-800/80 rounded-2xl p-3.5 space-y-2.5">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-xs font-bold text-amber-400 flex items-center space-x-1.5">
+                  <Star className="w-3.5 h-3.5 fill-amber-400" />
+                  <span>หุ้นใน Watchlist สำหรับบอท ({watchlist.length} หุ้น):</span>
+                </span>
+                <span className="text-[11px] text-slate-400">
+                  (คลิก ✕ เพื่อถอดออก หรือพิมพ์ชื่อหุ้นเพื่อเพิ่ม)
+                </span>
+              </div>
+
+              {/* Tags */}
+              <div className="flex flex-wrap gap-1.5 items-center">
+                {watchlist.map((sym) => (
+                  <span
+                    key={sym}
+                    className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-xl bg-slate-900 border border-amber-500/30 text-amber-200 text-xs font-mono font-bold"
+                  >
+                    <span>{sym}</span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRemoveFromWatchlist(sym);
+                      }}
+                      className="text-slate-400 hover:text-rose-400 transition cursor-pointer"
+                      title={`นำ ${sym} ออกจาก Watchlist`}
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                ))}
+
+                {/* Add Symbol Input */}
+                <div className="inline-flex items-center space-x-1 bg-slate-900 border border-slate-700 rounded-xl px-2 py-0.5">
+                  <input
+                    type="text"
+                    value={newSymbolInput}
+                    onChange={(e) => setNewSymbolInput(e.target.value.toUpperCase())}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddSymbolToWatchlist();
+                      }
+                    }}
+                    placeholder="เพิ่มหุ้น เช่น BDMS"
+                    className="bg-transparent text-white font-mono text-xs w-28 focus:outline-none placeholder:text-slate-600 uppercase"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddSymbolToWatchlist}
+                    className="p-1 text-emerald-400 hover:text-emerald-300 font-bold transition cursor-pointer"
+                    title="เพิ่มหุ้น"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* ================= 1. ACTIVE POSITION / QUICK TRADE EXECUTION ================= */}
         <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-5">
           <div className="flex items-center justify-between border-b border-slate-800 pb-3.5">
@@ -127,7 +356,13 @@ export const BotControlPanel: React.FC<BotControlPanelProps> = ({
               }`}
             >
               {botConfig.isActive
-                ? `🟢 Bot Auto Active (${botConfig.scanMode === 'MULTI_SCAN' ? 'สแกนหุ้นทั้งหมด' : botConfig.symbol})`
+                ? `🟢 Bot Auto Active (${
+                    botConfig.scanMode === 'MULTI_SCAN'
+                      ? 'สแกนหุ้นทั้งหมด'
+                      : (botConfig.scanMode || 'WATCHLIST') === 'WATCHLIST'
+                      ? `Watchlist ${(botConfig.customWatchlist || watchlist).length} หุ้น`
+                      : botConfig.symbol
+                  })`
                 : '🔴 Bot ปิดการทำงาน'}
             </span>
           </div>
@@ -418,8 +653,22 @@ export const BotControlPanel: React.FC<BotControlPanelProps> = ({
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">
-            {/* Row 1: Timeframe, EMAs, SL, TP */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 text-xs">
+            {/* Row 1: Scope Mode, Timeframe, EMAs, SL, TP */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 text-xs">
+              <div>
+                <label className="text-slate-300 font-bold block mb-1">โหมดการสแกน</label>
+                <select
+                  disabled={!isEditing}
+                  value={configForm.scanMode || 'WATCHLIST'}
+                  onChange={(e) => setConfigForm({ ...configForm, scanMode: e.target.value as any })}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-amber-400 font-bold font-mono focus:border-amber-500 disabled:opacity-60"
+                >
+                  <option value="WATCHLIST">⭐ Watchlist (แนะนำ)</option>
+                  <option value="SINGLE">🎯 หุ้นปัจจุบัน</option>
+                  <option value="MULTI_SCAN">🌐 ทั้งตลาด (SET)</option>
+                </select>
+              </div>
+
               <div>
                 <label className="text-slate-300 font-bold block mb-1">ไทม์เฟรมบอท</label>
                 <select

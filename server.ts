@@ -109,7 +109,8 @@ const DEFAULT_SERVER_STATE: ServerState = {
     buyOnSignal: ['BLUE', 'GREEN'],
     sellOnSignal: ['RED'],
     mode: 'PAPER',
-    scanMode: 'SINGLE',
+    scanMode: 'WATCHLIST', // 🎯 ค่าเริ่มต้น: เล่นเฉพาะหุ้นใน Watchlist
+    customWatchlist: ['PTT', 'CPALL', 'DELTA', 'KBANK', 'ADVANC', 'AOT'],
     directionMode: 'LONG_ONLY',
     isActive: false,
   },
@@ -435,8 +436,19 @@ async function runServerBotCycle() {
   isCycleRunning = true;
   try {
     const dirMode = config.directionMode ?? 'LONG_ONLY';
-    const isMultiScan = config.scanMode === 'MULTI_SCAN';
-    const symbolsToEvaluate = isMultiScan ? ALL_MARKET_STOCKS : [config.symbol];
+    const scanMode = config.scanMode || 'WATCHLIST';
+    let symbolsToEvaluate: string[] = [];
+    if (scanMode === 'MULTI_SCAN') {
+      symbolsToEvaluate = ALL_MARKET_STOCKS;
+    } else if (scanMode === 'SINGLE') {
+      symbolsToEvaluate = [config.symbol];
+    } else {
+      // 🎯 WATCHLIST (Default)
+      const wl = config.customWatchlist && config.customWatchlist.length > 0
+        ? config.customWatchlist
+        : ['PTT', 'CPALL', 'DELTA', 'KBANK', 'ADVANC', 'AOT'];
+      symbolsToEvaluate = wl;
+    }
 
     for (const sym of symbolsToEvaluate) {
       if (!serverState.botConfig.isActive) break;
@@ -739,6 +751,11 @@ app.post('/api/bot/config', (req, res) => {
     if (updated.leverage !== undefined) {
       updated.leverage = Math.min(Math.max(1, parseInt(String(updated.leverage), 10) || 1), 10);
     }
+    if (Array.isArray(updated.customWatchlist)) {
+      updated.customWatchlist = updated.customWatchlist
+        .map((s) => String(s).toUpperCase().trim().replace(/[^A-Z0-9]/g, ''))
+        .filter((s) => s.length > 0);
+    }
     // อย่าให้ client ส่ง botToken ว่างมาลบทิ้ง token ที่เซิร์ฟเวอร์ถืออยู่โดยไม่ตั้งใจ
     if (updated.telegramConfig && !updated.telegramConfig.botToken) {
       updated.telegramConfig.botToken = serverState.botConfig.telegramConfig?.botToken || '';
@@ -748,8 +765,16 @@ app.post('/api/bot/config', (req, res) => {
       ...updated,
     };
     saveServerState();
+
+    const scopeLabel =
+      serverState.botConfig.scanMode === 'MULTI_SCAN'
+        ? 'ทั้งตลาด (SET/mai)'
+        : serverState.botConfig.scanMode === 'SINGLE'
+        ? `เฉพาะ ${serverState.botConfig.symbol}`
+        : `Watchlist (${serverState.botConfig.customWatchlist?.length || 0} หุ้น)`;
+
     addServerLog(
-      `⚙️ อัปเดตการตั้งค่าบอท: ${serverState.botConfig.symbol} | TF: ${serverState.botConfig.timeframe} | สถานะ: ${serverState.botConfig.isActive ? 'เปิดทำงาน 🟢' : 'หยุด 🔴'}`
+      `⚙️ อัปเดตการตั้งค่าบอท: โหมด ${scopeLabel} | TF: ${serverState.botConfig.timeframe} | สถานะ: ${serverState.botConfig.isActive ? 'เปิดทำงาน 🟢' : 'หยุด 🔴'}`
     );
     return res.json({ success: true, botConfig: serverState.botConfig });
   } catch (err: any) {

@@ -24,6 +24,7 @@ import {
   getStoredLogs,
   addBotLog,
   getStoredSymbols,
+  getStoredWatchlist,
   DEFAULT_PAPER_ACCOUNT,
 } from './lib/botStore';
 import {
@@ -269,9 +270,17 @@ export default function App() {
 
   // Save config state updates to storage and cloud server
   const handleSaveBotConfig = async (updated: BotConfig) => {
-    setBotConfig(updated);
-    saveBotConfig(updated);
-    await saveBotServerConfig(updated);
+    const configWithWatchlist: BotConfig = {
+      ...updated,
+      scanMode: updated.scanMode || 'WATCHLIST',
+      customWatchlist:
+        updated.customWatchlist && updated.customWatchlist.length > 0
+          ? updated.customWatchlist
+          : getStoredWatchlist(),
+    };
+    setBotConfig(configWithWatchlist);
+    saveBotConfig(configWithWatchlist);
+    await saveBotServerConfig(configWithWatchlist);
   };
 
   const handleSaveBrokerKeys = async (updatedKeys: SettradeApiKeys) => {

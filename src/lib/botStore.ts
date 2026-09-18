@@ -34,7 +34,8 @@ export const DEFAULT_BOT_CONFIG: BotConfig = {
   buyOnSignal: ['BLUE', 'GREEN'], // 🎯 สัญญาณฟ้าแรก หรือ เขียวแรกตามระบบ CDC Action Zone V2 ลุงโฉลก
   sellOnSignal: ['RED'], // 🎯 ขายออกตามสัญญาณแดงแรก (Bearish Cash Out)
   mode: 'PAPER',
-  scanMode: 'SINGLE',
+  scanMode: 'WATCHLIST', // 🎯 ค่าเริ่มต้น: เล่นเฉพาะหุ้นใน Watchlist ตามที่ตั้งไว้
+  customWatchlist: ['PTT', 'CPALL', 'DELTA', 'KBANK', 'ADVANC', 'AOT'],
   directionMode: 'LONG_ONLY',
   isActive: false,
 };
@@ -69,11 +70,19 @@ export function getStoredBotConfig(): BotConfig {
 
     const maxPos = Math.max(1, Math.min(20, parseInt(parsed.maxOpenPositions || 5, 10)));
 
+    const currentWatchlist = getStoredWatchlist();
+    const customWatchlist =
+      Array.isArray(parsed.customWatchlist) && parsed.customWatchlist.length > 0
+        ? parsed.customWatchlist
+        : currentWatchlist;
+
     return {
       ...DEFAULT_BOT_CONFIG,
       ...parsed,
       symbol: cleanSymbol,
       mode: parsed.mode === 'SETTRADE_LIVE' ? 'SETTRADE_LIVE' : 'PAPER',
+      scanMode: parsed.scanMode || 'WATCHLIST',
+      customWatchlist,
       leverage: isNaN(lev) ? 1 : lev,
       timeframe: parsed.timeframe || '1d',
       maxOpenPositions: isNaN(maxPos) ? 5 : maxPos,
