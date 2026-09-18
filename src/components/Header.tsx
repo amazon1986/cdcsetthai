@@ -51,38 +51,21 @@ export const Header: React.FC<HeaderProps> = ({
     <header className="bg-slate-900 border-b border-slate-800 text-slate-100 sticky top-0 z-40 shadow-lg">
       {/* Top Bar: Title, Running Live Ticker, Paper Account & Settings */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap items-center justify-between gap-4">
-        {/* Brand & Title + ชาร์ต & ควบคุมบอท (same row as logo) */}
-        <div className="flex items-center gap-3 shrink-0">
-          <div className="flex items-center space-x-3">
-            <div className="bg-gradient-to-tr from-emerald-500 via-teal-500 to-blue-600 p-2.5 rounded-xl shadow-md flex items-center justify-center">
-              <TrendingUp className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <div className="flex items-center space-x-2">
-                <h1 className="text-lg font-bold tracking-tight text-white flex items-center gap-2">
-                  CDC Action Zone <span className="text-emerald-400 font-extrabold">V2</span>
-                </h1>
-                <span className="text-xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full font-medium">
-                  SET Thai Stock Bot
-                </span>
-              </div>
-              <p className="text-xs text-slate-400">ระบบบอทเทรดหุ้นไทยตามสัญญาณอินดิเคเตอร์ Chaloke.org (ลุงโฉลก)</p>
-            </div>
+        {/* Brand & Title */}
+        <div className="flex items-center space-x-3 shrink-0">
+          <div className="bg-gradient-to-tr from-emerald-500 via-teal-500 to-blue-600 p-2.5 rounded-xl shadow-md flex items-center justify-center">
+            <TrendingUp className="w-6 h-6 text-white" />
           </div>
-
-          {/* ชาร์ต & ควบคุมบอท — ระนาบเดียวกับ Logo */}
-          <div className="flex items-center ml-2 border-l border-slate-700 pl-3">
-            <button
-              onClick={() => setActiveTab('chart')}
-              className={`flex items-center space-x-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold transition whitespace-nowrap ${
-                activeTab === 'chart'
-                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-sm shadow-emerald-500/20'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/70 border border-transparent'
-              }`}
-            >
-              <BarChart3 className="w-4 h-4" />
-              <span>ชาร์ต & ควบคุมบอท</span>
-            </button>
+          <div>
+            <div className="flex items-center space-x-2">
+              <h1 className="text-lg font-bold tracking-tight text-white flex items-center gap-2">
+                CDC Action Zone <span className="text-emerald-400 font-extrabold">V2</span>
+              </h1>
+              <span className="text-xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full font-medium">
+                SET Thai Stock Bot
+              </span>
+            </div>
+            <p className="text-xs text-slate-400">ระบบบอทเทรดหุ้นไทยตามสัญญาณอินดิเคเตอร์ Chaloke.org (ลุงโฉลก)</p>
           </div>
         </div>
 
@@ -150,6 +133,18 @@ export const Header: React.FC<HeaderProps> = ({
       {/* Navigation Tabs Bar */}
       <div className="bg-slate-950/80 border-t border-slate-800/80 px-3 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto flex space-x-1 sm:space-x-2 overflow-x-auto py-2 scrollbar-none touch-pan-x overscroll-x-contain">
+          <button
+            onClick={() => setActiveTab('chart')}
+            className={`flex items-center space-x-2 px-3.5 py-2 rounded-lg text-xs font-medium transition whitespace-nowrap ${
+              activeTab === 'chart'
+                ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-semibold'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+            }`}
+          >
+            <BarChart3 className="w-4 h-4" />
+            <span>ชาร์ต & ควบคุมบอท</span>
+          </button>
+
           <button
             onClick={() => setActiveTab('wallet')}
             className={`flex items-center space-x-2 px-3.5 py-2 rounded-lg text-xs font-medium transition whitespace-nowrap ${
